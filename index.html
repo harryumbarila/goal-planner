@@ -1,0 +1,2292 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goal Planner · Planea hoy. Llega mañana.</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='50%25' y='78%25' font-size='26' text-anchor='middle' fill='%232563eb'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+:root{
+  --bg:#0c0c0f;
+  --bg-glow:rgba(59,130,246,0.16);
+  --surface:#141418;
+  --surface-2:#1c1c22;
+  --surface-3:#101014;
+  --text:#e8e6e1;
+  --muted:#6a6960;
+  --muted-2:#9a9890;
+  --border:rgba(255,255,255,0.08);
+  --accent:#3b82f6;
+  --accent-soft:rgba(59,130,246,0.12);
+  --accent-border:rgba(59,130,246,0.32);
+  --success:#22c55e;
+  --warning:#f59e0b;
+  --danger:#ef4444;
+  --shadow:0 16px 40px rgba(0,0,0,0.22);
+}
+body[data-theme="light"]{
+  --bg:#f3efe4;
+  --bg-glow:rgba(59,130,246,0.10);
+  --surface:#ffffff;
+  --surface-2:#f8f5ee;
+  --surface-3:#f2ede3;
+  --text:#171717;
+  --muted:#667085;
+  --muted-2:#475467;
+  --border:rgba(15,23,42,0.12);
+  --accent:#2563eb;
+  --accent-soft:rgba(37,99,235,0.10);
+  --accent-border:rgba(37,99,235,0.24);
+  --success:#16a34a;
+  --warning:#d97706;
+  --danger:#dc2626;
+  --shadow:0 16px 28px rgba(15,23,42,0.08);
+}
+body{
+  font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  transition:background 0.25s,color 0.25s;
+  position:relative;
+}
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at top left,var(--bg-glow),transparent 32%),
+    radial-gradient(circle at bottom right,rgba(34,197,94,0.08),transparent 28%);
+  opacity:1;
+}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+input[type=range]{
+  -webkit-appearance:none;
+  appearance:none;
+  width:100%;
+  height:4px;
+  border-radius:999px;
+  outline:none;
+  cursor:pointer;
+  margin:9px 0 0;
+  border:none;
+  display:block;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  appearance:none;
+  width:15px;
+  height:15px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:pointer;
+  border:2px solid var(--surface);
+  transition:transform 0.15s ease;
+}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.12)}
+input[type=range]::-moz-range-thumb{
+  width:15px;
+  height:15px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:pointer;
+  border:2px solid var(--surface);
+}
+.container{
+  max-width:1240px;
+  margin:0 auto;
+  padding:28px 24px 36px;
+  position:relative;
+  z-index:1;
+}
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:22px;
+}
+.toolbar{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.page-title{
+  font-size:26px;
+  font-weight:700;
+  letter-spacing:-0.04em;
+  line-height:1.1;
+  margin:0 0 4px;
+}
+.brand-mark{
+  color:var(--accent);
+  font-size:17px;
+  margin-right:5px;
+  vertical-align:middle;
+  display:inline-block;
+  line-height:1;
+  position:relative;
+  top:-1px;
+}
+.brand-tagline{
+  font-style:italic;
+  font-size:13px;
+  letter-spacing:0.01em;
+}
+.page-sub{
+  font-size:14px;
+  color:var(--muted);
+  margin:0;
+  line-height:1.55;
+  max-width:760px;
+}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+}
+.button,
+.ghost-button,
+.goal-tab{
+  font-family:'DM Sans',sans-serif;
+  border-radius:12px;
+  border:1px solid var(--border);
+  cursor:pointer;
+  transition:all 0.18s ease;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+.icon-btn{
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:8px;
+  color:var(--muted);
+  cursor:pointer;
+  padding:6px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:all 0.18s ease;
+  flex-shrink:0;
+}
+.icon-btn:hover{border-color:var(--danger);color:var(--danger)}
+.version-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:12px;
+  font-weight:600;
+  padding:5px 13px;
+  border-radius:999px;
+  border:1px solid var(--accent-border);
+  background:var(--accent-soft);
+  color:var(--accent);
+  cursor:pointer;
+  transition:all 0.18s ease;
+  font-family:inherit;
+  letter-spacing:0.01em;
+  white-space:nowrap;
+}
+.version-pill:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.whats-new-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.5);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.whats-new-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:28px 28px 24px;
+  max-width:440px;
+  width:100%;
+  box-shadow:var(--shadow);
+}
+.button{
+  background:var(--accent-soft);
+  border-color:var(--accent-border);
+  color:var(--accent);
+  padding:10px 14px;
+  font-size:13px;
+  font-weight:600;
+}
+.button:hover{transform:translateY(-1px);background:rgba(59,130,246,0.16)}
+.button:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+.ghost-button{
+  background:var(--surface);
+  color:var(--text);
+  padding:10px 14px;
+  font-size:13px;
+  font-weight:600;
+}
+.ghost-button:hover{border-color:var(--accent-border);color:var(--accent)}
+.hero-grid,
+.setup-grid,
+.progress-grid,
+.metric-grid,
+.whatif-grid,
+.summary-grid,
+.goal-management-grid{
+  display:grid;
+  gap:16px;
+}
+.hero-grid{
+  grid-template-columns:minmax(0,1.45fr) minmax(280px,0.8fr);
+  margin-bottom:20px;
+}
+.summary-grid{
+  grid-template-columns:repeat(4,1fr);
+  margin-bottom:20px;
+}
+.goal-management-grid{
+  grid-template-columns:1fr;
+  align-items:start;
+  margin-bottom:22px;
+}
+.setup-grid{
+  grid-template-columns:1fr 1fr;
+  margin-bottom:22px;
+}
+.progress-grid{
+  grid-template-columns:minmax(180px,200px) minmax(0,1fr);
+  margin-bottom:22px;
+}
+.metric-grid{
+  grid-template-columns:repeat(4,1fr);
+}
+.whatif-grid{
+  grid-template-columns:repeat(3,1fr);
+}
+.section-title{
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted-2);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  margin:0 0 14px;
+}
+.field-label{
+  font-size:11px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  display:block;
+  margin-bottom:6px;
+}
+.mono{font-family:'JetBrains Mono',monospace}
+.muted{color:var(--muted)}
+.pill-row,
+.goal-tab-row,
+.purpose-grid,
+.goal-stack{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.chip{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  color:var(--muted-2);
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.18s ease;
+}
+.chip.active{
+  background:var(--accent-soft);
+  border-color:var(--accent-border);
+  color:var(--accent);
+}
+.chip:hover{border-color:var(--accent-border);color:var(--text)}
+.goal-tab-row{margin-bottom:16px}
+.goal-tab{
+  background:var(--surface);
+  padding:12px 14px;
+  min-width:150px;
+  text-align:left;
+  color:var(--text);
+}
+.goal-tab.active{
+  background:var(--accent-soft);
+  border-color:var(--accent-border);
+}
+.goal-tab small{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  margin-top:4px;
+}
+.goal-stack{
+  flex-direction:column;
+}
+.goal-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:14px;
+}
+.goal-row-left{min-width:0}
+.goal-row-title{
+  font-size:14px;
+  font-weight:600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.goal-row-sub{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+.status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid transparent;
+}
+.status-green{background:rgba(34,197,94,0.10);color:var(--success);border-color:rgba(34,197,94,0.18)}
+.status-amber{background:rgba(245,158,11,0.10);color:var(--warning);border-color:rgba(245,158,11,0.18)}
+.status-red{background:rgba(239,68,68,0.10);color:var(--danger);border-color:rgba(239,68,68,0.18)}
+.onboarding-card{
+  max-width:860px;
+  margin:28px auto 0;
+  padding:28px;
+}
+.onboarding-title{
+  font-size:32px;
+  font-weight:700;
+  line-height:1.05;
+  letter-spacing:-0.04em;
+  margin:0 0 10px;
+}
+.onboarding-sub{
+  font-size:15px;
+  color:var(--muted);
+  line-height:1.6;
+  margin:0 0 24px;
+}
+.purpose-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+.purpose-card{
+  border-radius:16px;
+  border:1px solid var(--border);
+  background:var(--surface-2);
+  color:var(--text);
+  padding:16px;
+  cursor:pointer;
+  transition:all 0.18s ease;
+  text-align:left;
+}
+.purpose-card.active{
+  border-color:var(--accent-border);
+  background:var(--accent-soft);
+}
+.purpose-card-title{
+  font-size:15px;
+  font-weight:700;
+  margin:0 0 6px;
+}
+.purpose-card-copy{
+  font-size:13px;
+  color:var(--muted);
+  line-height:1.45;
+  margin:0;
+}
+.hero-callout{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:22px;
+}
+.hero-callout strong{
+  font-size:18px;
+  letter-spacing:-0.02em;
+}
+.hero-points{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+.hero-point{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px;
+}
+.hero-point-title{
+  font-size:12px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  margin-bottom:6px;
+}
+.hero-point-value{
+  font-size:16px;
+  font-weight:700;
+}
+.summary-tile{
+  padding:18px;
+}
+.summary-label{
+  font-size:11px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  margin-bottom:6px;
+}
+.summary-value{
+  font-family:'JetBrains Mono',monospace;
+  font-size:22px;
+  font-weight:600;
+}
+.summary-sub{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+  line-height:1.45;
+}
+.input-shell{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  font-size:15px;
+  font-weight:500;
+  padding:10px 12px;
+  width:100%;
+  text-align:right;
+  outline:none;
+  transition:border-color 0.18s ease;
+}
+.input-shell:focus,
+.select-shell:focus{border-color:var(--accent-border)}
+.select-shell{
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  font-size:14px;
+  padding:10px 36px 10px 12px;
+  width:100%;
+  outline:none;
+  appearance:none;
+  -webkit-appearance:none;
+  cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23808a9d'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:right}
+th{
+  color:var(--muted);
+  font-weight:700;
+  font-size:10.5px;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  white-space:nowrap;
+}
+th:first-child,td:first-child{text-align:left}
+.disclaimer{
+  padding:18px;
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.6;
+}
+.copy-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  color:var(--muted);
+}
+/* Prevent grid/flex children from overflowing their tracks */
+.goal-management-grid > *,
+.setup-grid > *,
+.metric-grid > *,
+.summary-grid > *,
+.hero-grid > *,
+.whatif-grid > *,
+.breakdown-grid > *{min-width:0}
+@media (max-width:980px){
+  .hero-grid,
+  .goal-management-grid,
+  .setup-grid,
+  .metric-grid,
+  .summary-grid,
+  .whatif-grid,
+  .breakdown-grid{grid-template-columns:1fr}
+  /* Keep ring + metrics side by side even on smaller screens */
+  .progress-grid{grid-template-columns:auto 1fr}
+  .purpose-grid{grid-template-columns:1fr}
+  .hero-points{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .container{padding:18px 16px 28px}
+  .topbar{flex-direction:column}
+  .toolbar{justify-content:flex-start;gap:6px}
+  .toolbar-secondary{display:none}
+  .theme-toggle-text{display:none}
+  .onboarding-card{padding:22px 18px}
+  .onboarding-title{font-size:28px}
+}
+</style>
+</head>
+<body data-theme="light">
+<div id="root"></div>
+<script type="text/babel">
+const STORAGE_KEY = 'goal-planner-state-v4';
+const MAX_GOALS = 5;
+const MAX_YEARS = 30;
+const CURRENT_YEAR = new Date().getFullYear();
+
+const WHATS_NEW = {
+  version: 'Nuevo',
+  items: [
+    { title: 'Cifras en pesos colombianos', desc: 'Todas las metas, aportes y proyecciones ahora en COP.' },
+    { title: 'Banda de volatilidad ±1σ', desc: 'La proyección muestra un rango de incertidumbre según el tipo de activo.' },
+    { title: 'El costo de esperar', desc: 'Simula cuánto pierdes si postergas tu meta 1, 2, 3 o 5 años.' },
+    { title: 'Inflación ajustada', desc: 'Ve cuánto valen tus pesos futuros en poder de compra de hoy.' },
+    { title: 'Capital vs rendimientos', desc: 'Gráfico que separa lo que aportaste tú vs lo que generó el dinero solo.' },
+    { title: 'Referencias históricas', desc: 'Benchmarks reales: CDT, TES, COLCAP, S&P 500 e inflación COP.' },
+    { title: 'Confirmación de escenarios', desc: 'Al explorar escenarios rápidos, ahora ves qué cambia, por qué y el impacto antes de aplicarlo.' },
+  ],
+};
+
+const PURPOSE_OPTIONS = [
+  {
+    value: 'downpayment',
+    label: 'Cuota inicial',
+    description: 'Armar una entrada para vivienda con una meta concreta y medible.',
+    baseGoal: 160000000,
+    expectedReturn: 8,
+    currentVal: 20000000,
+    defaultTitle: 'Entrada vivienda',
+  },
+  {
+    value: 'retirement',
+    label: 'Retiro',
+    description: 'Construir patrimonio de largo plazo con un horizonte amplio.',
+    baseGoal: 1000000000,
+    expectedReturn: 10,
+    currentVal: 40000000,
+    defaultTitle: 'Retiro',
+  },
+  {
+    value: 'vacation',
+    label: 'Vacaciones',
+    description: 'Reservar un monto alcanzable sin complicar el flujo mensual.',
+    baseGoal: 20000000,
+    expectedReturn: 6,
+    currentVal: 2000000,
+    defaultTitle: 'Vacaciones',
+  },
+  {
+    value: 'emergency',
+    label: 'Fondo de emergencia',
+    description: 'Crear un colchon de liquidez con foco en consistencia.',
+    baseGoal: 48000000,
+    expectedReturn: 5,
+    currentVal: 4000000,
+    defaultTitle: 'Fondo emergencia',
+  },
+  {
+    value: 'education',
+    label: 'Educacion',
+    description: 'Planear estudios propios o de la familia con plazo definido.',
+    baseGoal: 120000000,
+    expectedReturn: 7,
+    currentVal: 8000000,
+    defaultTitle: 'Educacion',
+  },
+  {
+    value: 'custom',
+    label: 'Otro',
+    description: 'Empezar con una meta flexible y refinarla despues.',
+    baseGoal: 60000000,
+    expectedReturn: 8,
+    currentVal: 0,
+    defaultTitle: 'Meta personalizada',
+  },
+];
+
+const PURPOSE_MAP = PURPOSE_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option;
+  return acc;
+}, {});
+
+const DEFAULT_ONBOARDING = { purpose: 'downpayment', years: 5, monthly: 1200000 };
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const coerceNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+const roundMoney = (value) => Math.max(0, Math.round(value));
+const generateId = () => 'goal-' + Math.random().toString(36).slice(2, 9);
+
+const fmt = (n) => {
+  if (!Number.isFinite(n)) return '--';
+  if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'MM';
+  if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+  return '$' + Math.round(n).toLocaleString('es-CO');
+};
+
+const pct = (value) => {
+  if (!Number.isFinite(value)) return '--';
+  return (value * 100).toFixed(1) + '%';
+};
+
+const projectByYear = (principal, annualRate, years, monthlyContribution) => {
+  const safeYears = Math.max(0, Math.round(years));
+  const monthlyRate = Math.max(0, annualRate) / 12;
+  const values = [Math.max(0, principal)];
+  let balance = Math.max(0, principal);
+  for (let year = 1; year <= safeYears; year++) {
+    for (let month = 0; month < 12; month++) {
+      balance = balance * (1 + monthlyRate) + Math.max(0, monthlyContribution);
+    }
+    values.push(balance);
+  }
+  return values;
+};
+
+const futureValue = (principal, annualRate, years, monthlyContribution) => {
+  const values = projectByYear(principal, annualRate, years, monthlyContribution);
+  return values[values.length - 1];
+};
+
+const requiredRate = (pv, fv, years) => {
+  if (pv >= fv) return 0;
+  if (pv <= 0 || years <= 0) return Infinity;
+  return Math.pow(fv / pv, 1 / years) - 1;
+};
+
+const requiredMonthlyContrib = (pv, fv, annualRate, years) => {
+  if (pv >= fv) return 0;
+  const months = Math.max(1, Math.round(years * 12));
+  const monthlyRate = Math.max(0, annualRate) / 12;
+  if (monthlyRate === 0) {
+    return Math.max(0, (fv - pv) / months);
+  }
+  const growth = Math.pow(1 + monthlyRate, months);
+  const projectedPrincipal = pv * growth;
+  const gap = fv - projectedPrincipal;
+  if (gap <= 0) return 0;
+  const annuityFactor = (growth - 1) / monthlyRate;
+  return Math.max(0, gap / annuityFactor);
+};
+
+const yearsToGoal = (pv, fv, annualRate, monthlyContribution) => {
+  if (pv >= fv) return 0;
+  const monthlyRate = Math.max(0, annualRate) / 12;
+  let balance = Math.max(0, pv);
+  for (let month = 1; month <= 1200; month++) {
+    balance = balance * (1 + monthlyRate) + Math.max(0, monthlyContribution);
+    if (balance >= fv) return Math.ceil(month / 12);
+  }
+  return Infinity;
+};
+
+const lumpSumNeeded = (fv, annualRate, years) => {
+  if (years <= 0) return fv;
+  const monthlyRate = Math.max(0, annualRate) / 12;
+  const months = Math.round(years * 12);
+  if (monthlyRate === 0) return fv;
+  return fv / Math.pow(1 + monthlyRate, months);
+};
+
+const requiredRateWithContrib = (pv, monthlyContribution, fv, years) => {
+  if (years <= 0) return Infinity;
+  if (futureValue(pv, 0, years, monthlyContribution) >= fv) return 0;
+  let lo = 0;
+  let hi = 1;
+  while (hi < 10 && futureValue(pv, hi, years, monthlyContribution) < fv) hi *= 2;
+  if (hi >= 10 && futureValue(pv, hi, years, monthlyContribution) < fv) return Infinity;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (futureValue(pv, mid, years, monthlyContribution) >= fv) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+};
+
+const sanitizeGoal = (goal, index = 0) => {
+  const purpose = PURPOSE_MAP[goal.goalPurpose] ? goal.goalPurpose : 'custom';
+  const preset = PURPOSE_MAP[purpose];
+  return {
+    id: goal.id || generateId(),
+    title: (goal.title || preset.defaultTitle || ('Meta ' + (index + 1))).slice(0, 48),
+    goalPurpose: purpose,
+    currentVal: Math.max(0, coerceNumber(goal.currentVal, preset.currentVal)),
+    expectedReturn: clamp(coerceNumber(goal.expectedReturn, preset.expectedReturn), 0, 100),
+    monthlyAdd: Math.max(0, coerceNumber(goal.monthlyAdd, 1200000)),
+    goalAmount: Math.max(1000000, coerceNumber(goal.goalAmount, preset.baseGoal)),
+    goalYears: clamp(Math.round(coerceNumber(goal.goalYears, 5)), 1, MAX_YEARS),
+  };
+};
+
+const createGoal = (overrides = {}, index = 0) => sanitizeGoal({
+  id: generateId(),
+  title: 'Meta ' + (index + 1),
+  goalPurpose: 'custom',
+  currentVal: 0,
+  expectedReturn: 8,
+  monthlyAdd: 1200000,
+  goalAmount: 60000000,
+  goalYears: 5,
+  ...overrides,
+}, index);
+
+const createGoalFromOnboarding = (draft) => {
+  const preset = PURPOSE_MAP[draft.purpose] || PURPOSE_MAP.custom;
+  const years = clamp(Math.round(coerceNumber(draft.years, 5)), 1, MAX_YEARS);
+  const monthly = Math.max(0, coerceNumber(draft.monthly, 1200000));
+  const seededCurrent = preset.currentVal;
+  const projected = futureValue(seededCurrent, preset.expectedReturn / 100, years, monthly);
+  const softTarget = Math.max(preset.baseGoal, Math.round(projected * 0.88 / 1000000) * 1000000);
+  return createGoal({
+    title: preset.defaultTitle,
+    goalPurpose: preset.value,
+    currentVal: seededCurrent,
+    expectedReturn: preset.expectedReturn,
+    monthlyAdd: monthly,
+    goalAmount: softTarget,
+    goalYears: years,
+  }, 0);
+};
+
+const serializeGoal = (goal) => ({
+  id: goal.id,
+  title: goal.title,
+  goalPurpose: goal.goalPurpose,
+  currentVal: roundMoney(goal.currentVal),
+  expectedReturn: Number(goal.expectedReturn.toFixed(2)),
+  monthlyAdd: roundMoney(goal.monthlyAdd),
+  goalAmount: roundMoney(goal.goalAmount),
+  goalYears: goal.goalYears,
+});
+
+const sanitizeAppState = (state) => {
+  const rawGoals = Array.isArray(state.goals) && state.goals.length ? state.goals : [createGoal({}, 0)];
+  const goals = rawGoals.slice(0, MAX_GOALS).map((goal, index) => sanitizeGoal(goal, index));
+  const activeGoalId = goals.some((goal) => goal.id === state.activeGoalId) ? state.activeGoalId : goals[0].id;
+  return {
+    theme: state.theme === 'dark' ? 'dark' : 'light',
+    goals,
+    activeGoalId,
+    onboardingComplete: Boolean(state.onboardingComplete),
+  };
+};
+
+const parseUrlState = () => {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.toString()) return null;
+  const theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+  const rawGoals = params.get('goals');
+  if (rawGoals) {
+    try {
+      const goals = JSON.parse(rawGoals);
+      return sanitizeAppState({
+        theme,
+        goals,
+        activeGoalId: params.get('active'),
+        onboardingComplete: true,
+      });
+    } catch (error) {
+      console.warn('No se pudo leer estado compartido:', error);
+    }
+  }
+  const singleGoal = params.get('goal');
+  if (singleGoal) {
+    const goal = createGoal({
+      title: params.get('title') || (PURPOSE_MAP[params.get('purpose')] || PURPOSE_MAP.custom).defaultTitle,
+      goalPurpose: params.get('purpose') || 'custom',
+      currentVal: params.get('current'),
+      expectedReturn: params.get('return'),
+      monthlyAdd: params.get('monthly'),
+      goalAmount: singleGoal,
+      goalYears: params.get('years'),
+    }, 0);
+    return sanitizeAppState({
+      theme,
+      goals: [goal],
+      activeGoalId: goal.id,
+      onboardingComplete: true,
+    });
+  }
+  return null;
+};
+
+const loadInitialState = () => {
+  const fromUrl = parseUrlState();
+  if (fromUrl) return fromUrl;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) return sanitizeAppState(JSON.parse(raw));
+  } catch (error) {
+    console.warn('No se pudo cargar localStorage:', error);
+  }
+  const starter = createGoal({}, 0);
+  return {
+    theme: 'light',
+    goals: [starter],
+    activeGoalId: starter.id,
+    onboardingComplete: false,
+  };
+};
+
+const syncUrlState = (state) => {
+  if (!state.goals.length || !state.onboardingComplete) return;
+  const activeGoal = state.goals.find((goal) => goal.id === state.activeGoalId) || state.goals[0];
+  const params = new URLSearchParams();
+  params.set('theme', state.theme);
+  params.set('active', activeGoal.id);
+  params.set('goal', String(roundMoney(activeGoal.goalAmount)));
+  params.set('years', String(activeGoal.goalYears));
+  params.set('monthly', String(roundMoney(activeGoal.monthlyAdd)));
+  params.set('current', String(roundMoney(activeGoal.currentVal)));
+  params.set('return', String(Number(activeGoal.expectedReturn.toFixed(2))));
+  params.set('purpose', activeGoal.goalPurpose);
+  params.set('title', activeGoal.title);
+  params.set('goals', JSON.stringify(state.goals.map(serializeGoal)));
+  const nextUrl = window.location.pathname + '?' + params.toString();
+  window.history.replaceState({}, '', nextUrl);
+};
+
+const statusFromProjection = (finalVal, goal) => {
+  if (finalVal >= goal) return 'green';
+  if (finalVal >= goal * 0.7) return 'amber';
+  return 'red';
+};
+
+const Icon = ({ children, size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display:'block', flexShrink:0 }}>
+    {children}
+  </svg>
+);
+const ShareIcon = () => <Icon><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></Icon>;
+const CheckIcon = () => <Icon><polyline points="20 6 9 17 4 12"/></Icon>;
+const MoonIcon  = () => <Icon><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Icon>;
+const SunIcon   = () => <Icon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></Icon>;
+const RefreshIcon = () => <Icon><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Icon>;
+const PlusIcon  = () => <Icon><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const XIcon     = () => <Icon size={14}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+
+const SectionTitle = ({ children }) => <h2 className="section-title">{children}</h2>;
+
+const Card = ({ children, style, padding = 20, className = '' }) => (
+  <div className={`card ${className}`.trim()} style={{ padding, ...style }}>{children}</div>
+);
+
+const CurrencyInput = ({ value, onChange, ...rest }) => {
+  const numVal = Number.isFinite(+value) ? Math.round(+value) : 0;
+  const [display, setDisplay] = React.useState(
+    () => numVal === 0 ? '' : numVal.toLocaleString('es-CO')
+  );
+  const inputRef = React.useRef(null);
+
+  // Sync from external changes (e.g. slider) only when the field is not focused
+  React.useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setDisplay(numVal === 0 ? '' : numVal.toLocaleString('es-CO'));
+    }
+  }, [numVal]);
+
+  const handleChange = (e) => {
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    // How many digits are to the left of the cursor?
+    const digitsBeforeCursor = (input.value.slice(0, cursorPos).match(/\d/g) || []).length;
+    const digits = input.value.replace(/\D/g, '');
+    const numeric = digits === '' ? 0 : parseInt(digits, 10);
+    const formatted = digits === '' ? '' : numeric.toLocaleString('es-CO');
+    setDisplay(formatted);
+    if (onChange) onChange({ target: { value: numeric } });
+    // Restore cursor to the same logical digit position in the re-formatted string
+    requestAnimationFrame(() => {
+      if (inputRef.current && document.activeElement === inputRef.current) {
+        let digitsSeen = 0;
+        let newPos = formatted.length;
+        for (let i = 0; i < formatted.length; i++) {
+          if (/\d/.test(formatted[i])) {
+            digitsSeen++;
+            if (digitsSeen === digitsBeforeCursor) { newPos = i + 1; break; }
+          }
+        }
+        inputRef.current.setSelectionRange(newPos, newPos);
+      }
+    });
+  };
+
+  const handleFocus = (e) => { setTimeout(() => e.target.select(), 0); };
+  const handleBlur  = ()  => { setDisplay(numVal === 0 ? '' : numVal.toLocaleString('es-CO')); };
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      inputMode="numeric"
+      className="input-shell"
+      value={display}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      {...rest}
+    />
+  );
+};
+
+const NumberInput = ({ value, onChange, min, max, step, currency = false, ...rest }) => {
+  if (currency) return <CurrencyInput value={value} onChange={onChange} {...rest} />;
+  return (
+    <input type="number" className="input-shell" value={value} onChange={onChange} min={min} max={max} step={step} {...rest} />
+  );
+};
+
+const SliderInput = ({ value, min, max, step, onChange }) => {
+  const ratio = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={onChange}
+      style={{ background: `linear-gradient(to right,var(--accent) ${clamp(ratio, 0, 100)}%,rgba(128,138,157,0.22) ${clamp(ratio, 0, 100)}%)` }}
+    />
+  );
+};
+
+const Select = ({ children, ...props }) => <select className="select-shell" {...props}>{children}</select>;
+
+const Field = ({ label, prefix, suffix, children, slider, hint }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label className="field-label">{label}</label>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      {prefix ? <span style={{ color: 'var(--muted)', paddingTop: 11 }}>{prefix}</span> : null}
+      <div style={{ flex: 1 }}>
+        {children}
+        {slider}
+      </div>
+      {suffix ? <span style={{ color: 'var(--muted)', paddingTop: 11 }}>{suffix}</span> : null}
+    </div>
+    {hint ? <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 6, lineHeight: 1.4 }}>{'-> ' + hint}</div> : null}
+  </div>
+);
+
+const SummaryTile = ({ label, value, sub, tone }) => {
+  const toneColor = tone === 'green'
+    ? 'var(--success)'
+    : tone === 'amber'
+      ? 'var(--warning)'
+      : tone === 'blue'
+        ? 'var(--accent)'
+      : tone === 'red'
+        ? 'var(--danger)'
+        : 'var(--text)';
+  return (
+    <Card className="summary-tile" padding={18}>
+      <div className="summary-label">{label}</div>
+      <div className="summary-value" style={{ color: toneColor }}>{value}</div>
+      {sub ? <div className="summary-sub">{sub}</div> : null}
+    </Card>
+  );
+};
+
+const BENCHMARKS = [
+  { label: 'Inflación COP', detail: 'Promedio IPC Colombia, últimos 20 años (2004–2024). Rentabilidad mínima para no perder poder adquisitivo.', rate: 5 },
+  { label: 'CDT',           detail: 'Tasa de referencia Banrep vigente. Varía con la política monetaria — consulta tu banco para la tasa actual.', rate: 9 },
+  { label: 'TES',           detail: 'Rendimiento promedio TES a 10 años, últimos 10 años (2014–2024). Deuda soberana colombiana en COP.', rate: 8 },
+  { label: 'COLCAP',        detail: 'Retorno anualizado del índice desde su creación en 2008. Datos limitados a ~16 años, alta volatilidad en COP.', rate: 7 },
+  { label: 'S&P 500',       detail: 'Retorno total anualizado (con dividendos) en USD, últimos 20 años (2004–2024). No incluye efecto TRM.', rate: 10 },
+];
+
+const BenchmarkRefs = ({ currentRate, onApply }) => (
+  <div style={{ marginTop: 10, marginBottom: 4 }}>
+    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>
+      {'Referencias históricas — clic para aplicar'}
+    </div>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {BENCHMARKS.map((b) => {
+        const isActive = Math.abs(currentRate - b.rate) < 0.6;
+        return (
+          <button
+            key={b.label}
+            onClick={() => onApply(b.rate)}
+            title={b.detail}
+            style={{
+              background: isActive ? 'var(--accent-soft)' : 'var(--surface-2)',
+              border: `1px solid ${isActive ? 'var(--accent-border)' : 'var(--border)'}`,
+              borderRadius: '999px',
+              padding: '4px 10px',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 600, color: isActive ? 'var(--accent)' : 'var(--muted-2)' }}>{b.label}</span>
+            <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: isActive ? 'var(--accent)' : 'var(--muted)', opacity: 0.85 }}>{`~${b.rate}%`}</span>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const StartingPointCard = ({ goal, onPatch, hints }) => (
+  <Card>
+    <SectionTitle>{'Tu punto de partida'}</SectionTitle>
+    <Field label={'Valor actual del portafolio'} prefix={'$'}>
+      <NumberInput currency value={goal.currentVal} min={0} step={1000000} onChange={(e) => onPatch({ currentVal: Math.max(0, +e.target.value || 0) })} />
+    </Field>
+    <Field
+      label={'Rendimiento anual esperado'}
+      suffix={'%'}
+      hint={hints.expectedReturn}
+      slider={<SliderInput value={goal.expectedReturn} min={0} max={50} step={1} onChange={(e) => onPatch({ expectedReturn: +e.target.value })} />}
+    >
+      <NumberInput value={goal.expectedReturn} min={0} max={100} step={1} onChange={(e) => onPatch({ expectedReturn: clamp(+e.target.value || 0, 0, 100) })} />
+    </Field>
+    <BenchmarkRefs currentRate={goal.expectedReturn} onApply={(rate) => onPatch({ expectedReturn: rate })} />
+    <Field
+      label={'Aporte mensual'}
+      prefix={'$'}
+      hint={hints.monthlyAdd}
+      slider={<SliderInput value={goal.monthlyAdd} min={0} max={20000000} step={100000} onChange={(e) => onPatch({ monthlyAdd: +e.target.value })} />}
+    >
+      <NumberInput currency value={goal.monthlyAdd} min={0} step={100000} onChange={(e) => onPatch({ monthlyAdd: Math.max(0, +e.target.value || 0) })} />
+    </Field>
+  </Card>
+);
+
+const GoalCard = ({ goal, onPatch, hintGoalYears, canRemove, onRemove }) => (
+  <Card>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 16, alignItems: 'center' }}>
+      <SectionTitle>{'Tu meta'}</SectionTitle>
+      {canRemove ? <button className="ghost-button" onClick={onRemove}>{'Eliminar meta'}</button> : null}
+    </div>
+    <Field label={'Nombre de la meta'}>
+      <input
+        type="text"
+        className="input-shell"
+        value={goal.title}
+        style={{ textAlign: 'left', fontFamily: "'DM Sans', sans-serif" }}
+        onChange={(e) => onPatch({ title: e.target.value.slice(0, 48) })}
+      />
+    </Field>
+    <Field label={'Monto objetivo'} prefix={'$'}>
+      <NumberInput currency value={goal.goalAmount} min={1000000} step={1000000} onChange={(e) => onPatch({ goalAmount: Math.max(1000000, +e.target.value || 1000000) })} />
+    </Field>
+    <div className="pill-row" style={{ marginTop: -4, marginBottom: 14 }}>
+      {[50000000, 100000000, 200000000, 400000000, 800000000, 2000000000].map((preset) => (
+        <button key={preset} className={'chip' + (goal.goalAmount === preset ? ' active' : '')} onClick={() => onPatch({ goalAmount: preset })}>
+          {fmt(preset)}
+        </button>
+      ))}
+    </div>
+    <Field
+      label={'Plazo'}
+      suffix={'a\u00f1os'}
+      hint={hintGoalYears}
+      slider={<SliderInput value={goal.goalYears} min={1} max={MAX_YEARS} step={1} onChange={(e) => onPatch({ goalYears: clamp(+e.target.value, 1, MAX_YEARS) })} />}
+    >
+      <NumberInput value={goal.goalYears} min={1} max={MAX_YEARS} step={1} onChange={(e) => onPatch({ goalYears: clamp(+e.target.value || 1, 1, MAX_YEARS) })} />
+    </Field>
+    <Field label={'\u00bfPara qu\u00e9 es esta meta?'}>
+      <Select value={goal.goalPurpose} onChange={(e) => onPatch({ goalPurpose: e.target.value })}>
+        {PURPOSE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </Select>
+    </Field>
+  </Card>
+);
+
+const VerdictBanner = ({ goal, finalVal, eta, onPatch }) => {
+  const state = statusFromProjection(finalVal, goal.goalAmount);
+  const monthlyNeeded = requiredMonthlyContrib(goal.currentVal, goal.goalAmount, goal.expectedReturn / 100, goal.goalYears);
+  const roundedNeeded = Number.isFinite(monthlyNeeded) ? Math.ceil(monthlyNeeded / 100000) * 100000 : null;
+  const projectedPct = Math.round((finalVal / goal.goalAmount) * 100);
+  const suggestedYears = clamp(Number.isFinite(eta) && eta > goal.goalYears ? eta : goal.goalYears + 3, 1, MAX_YEARS);
+  const suggestedGoal = finalVal > 5000000 ? Math.max(5000000, Math.floor(finalVal / 5000000) * 5000000) : null;
+  const toneClass = state === 'green' ? 'status-green' : state === 'amber' ? 'status-amber' : 'status-red';
+  const badge = state === 'green' ? 'En camino' : state === 'amber' ? 'Cerca' : 'Ajustar plan';
+  const headline = state === 'green'
+    ? `Llegarias a ${fmt(finalVal)} en ${goal.goalYears} ${goal.goalYears === 1 ? 'a\u00f1o' : 'a\u00f1os'}`
+    : state === 'amber'
+      ? `Te faltaria ${fmt(goal.goalAmount - finalVal)} para cerrar la meta`
+      : `Con este plan llegarias a ${projectedPct}% de la meta`;
+  const copy = state === 'green'
+    ? (goal.monthlyAdd > 0
+        ? `Tus aportes de ${fmt(goal.monthlyAdd)}/mes sostienen el ritmo. Si sigues así, la meta se cumple sin cambiar el plazo.`
+        : 'La meta se cumple con el capital actual y el rendimiento esperado.')
+    : state === 'amber'
+      ? `Para llegar en el mismo plazo, el plan necesita aproximadamente ${fmt(Math.round(monthlyNeeded))}/mes en total.`
+      : `La meta está exigente para el plazo actual. Prueba extender el horizonte, subir el aporte o bajar el objetivo inicial.`;
+
+  return (
+    <Card style={{
+      marginBottom: 22,
+      background: state === 'green'
+        ? 'linear-gradient(135deg,rgba(34,197,94,0.10),transparent)'
+        : state === 'amber'
+          ? 'linear-gradient(135deg,rgba(245,158,11,0.10),transparent)'
+          : 'linear-gradient(135deg,rgba(239,68,68,0.10),transparent)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: 760 }}>
+          <span className={'status-badge ' + toneClass}>{badge}</span>
+          <h3 style={{ fontSize: 19, margin: '12px 0 6px', letterSpacing: '-0.02em' }}>{headline}</h3>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13, lineHeight: 1.6 }}>{copy}</p>
+        </div>
+        <div className="copy-pill mono" style={{ color: 'var(--muted-2)' }}>
+          {Number.isFinite(eta) ? `ETA ${CURRENT_YEAR + eta}` : 'Sin ETA clara'}
+        </div>
+      </div>
+      {state !== 'green' ? (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+          {suggestedYears !== goal.goalYears ? <button className="button" onClick={() => onPatch({ goalYears: suggestedYears })}>{`Extender a ${suggestedYears} a\u00f1os`}</button> : null}
+          {roundedNeeded && roundedNeeded !== goal.monthlyAdd ? <button className="button" onClick={() => onPatch({ monthlyAdd: roundedNeeded })}>{`Subir aporte a ${fmt(roundedNeeded)}/mes`}</button> : null}
+          {suggestedGoal && suggestedGoal < goal.goalAmount ? <button className="button" onClick={() => onPatch({ goalAmount: suggestedGoal })}>{`Bajar meta a ${fmt(suggestedGoal)}`}</button> : null}
+        </div>
+      ) : null}
+    </Card>
+  );
+};
+
+const ProgressRing = ({ goal, finalVal }) => {
+  const projPct = Math.min(100, Math.round((finalVal / goal.goalAmount) * 100));
+  const currPct = Math.min(100, Math.round((goal.currentVal / goal.goalAmount) * 100));
+  const projYear = CURRENT_YEAR + goal.goalYears;
+  const outerR = 56;
+  const outerC = 2 * Math.PI * outerR;
+  const outerOffset = outerC - (projPct / 100) * outerC;
+  const innerR = 40;
+  const innerC = 2 * Math.PI * innerR;
+  const innerOffset = innerC - (currPct / 100) * innerC;
+  const outerColor = projPct >= 100 ? 'var(--success)' : projPct >= 70 ? 'var(--warning)' : 'var(--danger)';
+  return (
+    <Card padding={24} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', width: 140, height: 140 }}>
+        <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="70" cy="70" r={outerR} fill="none" stroke="var(--border)" strokeWidth="8" />
+          <circle cx="70" cy="70" r={outerR} fill="none" stroke={outerColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={outerC} strokeDashoffset={outerOffset} />
+          <circle cx="70" cy="70" r={innerR} fill="none" stroke="var(--border)" strokeWidth="6" />
+          <circle cx="70" cy="70" r={innerR} fill="none" stroke="var(--accent)" strokeWidth="6" strokeLinecap="round" strokeDasharray={innerC} strokeDashoffset={innerOffset} />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+          <div>
+            <div className="mono" style={{ fontSize: 24, color: outerColor, fontWeight: 700 }}>{projPct}%</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{`en ${projYear}`}</div>
+            <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4 }}>{`${currPct}% hoy`}</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 12, textAlign: 'center', lineHeight: 1.6 }}>
+        <div>{fmt(goal.currentVal) + ' hoy'}</div>
+        <div><span style={{ color: outerColor }}>{fmt(finalVal)}</span>{' proyectado'}</div>
+      </div>
+    </Card>
+  );
+};
+
+const MetricRow = ({ goal, finalVal }) => {
+  const diff = finalVal - goal.goalAmount;
+  const reqRate = requiredRate(goal.currentVal, goal.goalAmount, goal.goalYears);
+  const reqMonthly = requiredMonthlyContrib(goal.currentVal, goal.goalAmount, 0.10, goal.goalYears);
+  const lumpSum = lumpSumNeeded(goal.goalAmount, goal.expectedReturn / 100, goal.goalYears);
+  return (
+    <div className="metric-grid">
+      <SummaryTile
+        label={'Valor proyectado'}
+        value={fmt(finalVal)}
+        tone={diff >= 0 ? 'green' : 'red'}
+        sub={diff >= 0 ? fmt(diff) + ' de sobra' : fmt(Math.abs(diff)) + ' de deficit'}
+      />
+      <SummaryTile
+        label={'Rendimiento necesario'}
+        value={reqRate >= 9 || !Number.isFinite(reqRate) ? 'Imposible' : pct(reqRate)}
+        tone={reqRate <= 0.10 ? 'green' : reqRate <= 0.25 ? 'amber' : 'red'}
+        sub={'Solo con el capital actual'}
+      />
+      <SummaryTile
+        label={'Aporte mensual necesario'}
+        value={reqMonthly > 200000000 ? 'Inviable' : fmt(Math.round(reqMonthly))}
+        tone={reqMonthly <= 2000000 ? 'green' : reqMonthly <= 8000000 ? 'amber' : 'red'}
+        sub={'Al 10% anual'}
+      />
+      <SummaryTile
+        label={'Capital inicial equivalente'}
+        value={fmt(Math.round(lumpSum))}
+        tone={goal.currentVal >= lumpSum ? 'green' : goal.currentVal >= lumpSum * 0.5 ? 'amber' : 'red'}
+        sub={'Deposito unico hoy'}
+      />
+    </div>
+  );
+};
+
+const ScenarioModal = ({ scenario, goal, currentProjection, onApply, onClose }) => {
+  const reaches = scenario.val >= goal.goalAmount;
+  const improvement = scenario.val - currentProjection;
+  const pctOfGoal = Math.round((scenario.val / goal.goalAmount) * 100);
+  return (
+    <div className="whats-new-overlay" onClick={onClose}>
+      <div className="whats-new-card" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{'Escenario rápido'}</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{scenario.label}</div>
+          </div>
+          <button className="icon-btn" onClick={onClose} style={{ border: 'none', flexShrink: 0 }}><XIcon /></button>
+        </div>
+
+        {/* Explanation */}
+        <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 20 }}>{scenario.explain}</p>
+
+        {/* What changes */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{'Qué cambia'}</div>
+          {scenario.changes.map((c, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'var(--surface-2)', borderRadius: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ color: 'var(--muted)', textDecoration: 'line-through', opacity: 0.7 }}>{c.from}</span>
+                <span style={{ color: 'var(--muted)' }}>{'→'}</span>
+                <span style={{ color: 'var(--accent)' }}>{c.to}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Projected result */}
+        <div style={{
+          background: reaches ? 'rgba(34,197,94,0.07)' : 'rgba(245,158,11,0.07)',
+          border: `1px solid ${reaches ? 'rgba(34,197,94,0.22)' : 'rgba(245,158,11,0.22)'}`,
+          borderRadius: 14, padding: '14px 16px', marginBottom: 22,
+        }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{'Resultado proyectado'}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+            <span className="mono" style={{ fontSize: 26, fontWeight: 700, color: reaches ? 'var(--success)' : 'var(--warning)' }}>{fmt(scenario.val)}</span>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>{`vs ${fmt(Math.round(currentProjection))} plan actual`}</span>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: reaches ? 'var(--success)' : 'var(--warning)', marginBottom: improvement > 0 ? 4 : 0 }}>
+            {reaches
+              ? `✓ Llega a la meta de ${fmt(goal.goalAmount)}`
+              : `${pctOfGoal}% de la meta · faltan ${fmt(Math.round(goal.goalAmount - scenario.val))}`}
+          </div>
+          {improvement > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{`+${fmt(Math.round(improvement))} adicionales respecto al plan actual`}</div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="button" style={{ flex: 1 }} onClick={onApply}>{'Aplicar escenario'}</button>
+          <button className="ghost-button" onClick={onClose}>{'Cancelar'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WhatIfGrid = ({ goal, onPatch }) => {
+  const [pending, setPending] = React.useState(null);
+  const rate = goal.expectedReturn / 100;
+  const safeLongerYears = clamp(goal.goalYears + 3, 1, MAX_YEARS);
+  const currentProjection = futureValue(goal.currentVal, rate, goal.goalYears, goal.monthlyAdd);
+
+  const scenarios = [
+    {
+      label: 'Duplicar aportes',
+      desc: `${fmt(goal.monthlyAdd * 2)}/mes`,
+      explain: `Doblas el aporte mensual de ${fmt(goal.monthlyAdd)} a ${fmt(goal.monthlyAdd * 2)}. Más capital entrando cada mes amplifica el interés compuesto desde el primer período — el efecto acumulado es mayor de lo que parece.`,
+      changes: [{ label: 'Aporte mensual', from: fmt(goal.monthlyAdd), to: fmt(goal.monthlyAdd * 2) }],
+      val: futureValue(goal.currentVal, rate, goal.goalYears, goal.monthlyAdd * 2),
+      apply: { monthlyAdd: goal.monthlyAdd * 2 },
+    },
+    {
+      label: '+5 pp retorno',
+      desc: pct((goal.expectedReturn + 5) / 100),
+      explain: `Aumentas el retorno esperado de ${pct(goal.expectedReturn / 100)} a ${pct((goal.expectedReturn + 5) / 100)}. Implica moverse hacia activos con mayor riesgo — acciones, ETFs o fondos mixtos. El resultado sube, pero también la volatilidad del camino.`,
+      changes: [{ label: 'Retorno anual', from: pct(goal.expectedReturn / 100), to: pct((goal.expectedReturn + 5) / 100) }],
+      val: futureValue(goal.currentVal, (goal.expectedReturn + 5) / 100, goal.goalYears, goal.monthlyAdd),
+      apply: { expectedReturn: clamp(goal.expectedReturn + 5, 0, 100) },
+    },
+    {
+      label: '+3 años plazo',
+      desc: `${safeLongerYears} años total`,
+      explain: `Extiendes el horizonte de ${goal.goalYears} a ${safeLongerYears} años sin cambiar aportes ni retorno. El tiempo extra le da al interés compuesto tres años más para trabajar — y en las etapas finales es cuando más crece.`,
+      changes: [{ label: 'Plazo', from: `${goal.goalYears} años`, to: `${safeLongerYears} años` }],
+      val: futureValue(goal.currentVal, rate, safeLongerYears, goal.monthlyAdd),
+      apply: { goalYears: safeLongerYears },
+    },
+    {
+      label: 'Aporte de $2M',
+      desc: 'Plan fijo de $2M/mes',
+      explain: `Fijas el aporte mensual en ${fmt(2000000)} como referencia concreta. Útil para comparar tu plan actual contra un número redondo y ver qué tan lejos o cerca estás de esa cifra.`,
+      changes: [{ label: 'Aporte mensual', from: fmt(goal.monthlyAdd), to: fmt(2000000) }],
+      val: futureValue(goal.currentVal, rate, goal.goalYears, 2000000),
+      apply: { monthlyAdd: 2000000 },
+    },
+    {
+      label: 'Escenario 12%',
+      desc: 'Rendimiento balanceado',
+      explain: `Modela un retorno del 12% anual, consistente con portafolios balanceados de acciones y bonos en mercados emergentes. Es históricamente alcanzable en horizontes largos, pero sin garantías año a año.`,
+      changes: [{ label: 'Retorno anual', from: pct(goal.expectedReturn / 100), to: '12%' }],
+      val: futureValue(goal.currentVal, 0.12, goal.goalYears, goal.monthlyAdd),
+      apply: { expectedReturn: 12 },
+    },
+    {
+      label: 'Conservador',
+      desc: '8% + $1.2M/mes',
+      explain: `Plan de bajo riesgo: 8% anual (comparable a TES o CDT de largo plazo) con ${fmt(1200000)} de aporte mensual. Sirve como piso para saber cuánto generarías asumiendo lo mínimo — sin exposición a renta variable.`,
+      changes: [
+        { label: 'Retorno anual', from: pct(goal.expectedReturn / 100), to: '8%' },
+        { label: 'Aporte mensual', from: fmt(goal.monthlyAdd), to: fmt(1200000) },
+      ],
+      val: futureValue(goal.currentVal, 0.08, goal.goalYears, 1200000),
+      apply: { expectedReturn: 8, monthlyAdd: 1200000 },
+    },
+  ];
+
+  return (
+    <React.Fragment>
+      {pending && (
+        <ScenarioModal
+          scenario={pending}
+          goal={goal}
+          currentProjection={currentProjection}
+          onApply={() => { onPatch(pending.apply); setPending(null); }}
+          onClose={() => setPending(null)}
+        />
+      )}
+      <Card>
+        <SectionTitle>{'\u00bfQu\u00e9 necesitas para llegar?'}</SectionTitle>
+        <p className="page-sub" style={{ marginBottom: 14 }}>{'Explora escenarios y aplica el que más te convenza.'}</p>
+        <div className="whatif-grid">
+          {scenarios.map((scenario) => {
+            const reaches = scenario.val >= goal.goalAmount;
+            const tone = reaches ? 'var(--success)' : 'var(--warning)';
+            return (
+              <div
+                key={scenario.label}
+                onClick={() => setPending(scenario)}
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 14,
+                  padding: 16,
+                  cursor: 'pointer',
+                  transition: 'border-color 0.18s ease, transform 0.18s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-border)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{scenario.label}</div>
+                <div className="mono" style={{ fontSize: 18, color: tone, fontWeight: 600 }}>{fmt(scenario.val)}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
+                  {scenario.desc + ' · ' + (reaches ? 'Llega a la meta' : `${Math.round((scenario.val / goal.goalAmount) * 100)}% de la meta`)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </React.Fragment>
+  );
+};
+
+const DELAY_OPTIONS = [1, 2, 3, 5];
+
+const InflationAdjuster = ({ goal, finalVal }) => {
+  const [inflation, setInflation] = React.useState(5);
+  const years = goal.goalYears;
+  const factor = Math.pow(1 + inflation / 100, years);
+
+  const goalRealValue        = Math.round(goal.goalAmount / factor);
+  const projectedRealValue   = Math.round(finalVal / factor);
+  const inflationAdjGoal     = Math.round(goal.goalAmount * factor);
+  const purchasingPowerLoss  = goal.goalAmount - goalRealValue;
+  const lossPercent          = Math.round((purchasingPowerLoss / goal.goalAmount) * 100);
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <SectionTitle>{'Inflación: el costo invisible'}</SectionTitle>
+      <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 18px', lineHeight: 1.6 }}>
+        {`Una meta de ${fmt(goal.goalAmount)} en ${years} ${years === 1 ? 'año' : 'años'} no es lo mismo que ${fmt(goal.goalAmount)} hoy. La inflación erosiona el poder de compra en silencio.`}
+      </p>
+
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{'Inflación anual estimada'}</label>
+          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>{`${inflation}%`}</span>
+        </div>
+        <SliderInput value={inflation} min={1} max={20} step={1} onChange={(e) => setInflation(+e.target.value)} />
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{'IPC Colombia histórico ~5% · Pico 2022: 13%'}</div>
+      </div>
+
+      <div className="setup-grid" style={{ marginBottom: 14 }}>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+            {`Tu meta de ${fmt(goal.goalAmount)} en ${years} años...`}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>{'...en pesos de hoy vale:'}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700, color: 'var(--warning)' }}>{fmt(goalRealValue)}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{`La inflación se lleva ${fmt(purchasingPowerLoss)} (${lossPercent}%)`}</div>
+        </div>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+            {'Para conservar el poder de compra...'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>{'...tu meta real debería ser:'}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700, color: 'var(--accent)' }}>{fmt(inflationAdjGoal)}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{`${fmt(goal.goalAmount)} de hoy = ${fmt(inflationAdjGoal)} en ${years} años`}</div>
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{'Tu proyección en pesos de hoy'}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700, color: projectedRealValue >= goalRealValue ? 'var(--success)' : 'var(--warning)' }}>
+            {fmt(projectedRealValue)}
+          </span>
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>{`(nominal: ${fmt(Math.round(finalVal))})`}</span>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+          {`Con ${inflation}% de inflación, tus ${fmt(Math.round(finalVal))} nominales tienen el poder de compra de ${fmt(projectedRealValue)} de hoy.`}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+const CostOfWaiting = ({ goal, finalVal }) => {
+  const [delayYears, setDelayYears] = React.useState(2);
+
+  const rate = goal.expectedReturn / 100;
+  const effectiveYears = Math.max(0, goal.goalYears - delayYears);
+  const delayedVal = futureValue(goal.currentVal, rate, effectiveYears, goal.monthlyAdd);
+  const valueLost = Math.max(0, finalVal - delayedVal);
+  const extraMonthly = Math.max(0,
+    requiredMonthlyContrib(goal.currentVal, finalVal, rate, effectiveYears) - goal.monthlyAdd
+  );
+
+  const lostPct = finalVal > 0 ? Math.round((valueLost / finalVal) * 100) : 0;
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <SectionTitle>{'El costo de esperar'}</SectionTitle>
+      <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 18px', lineHeight: 1.6 }}>
+        {'¿Qué pasa si postergas empezar? Misma meta, mismos aportes — menos tiempo.'}
+      </p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center', marginRight: 4 }}>{'Esperar:'}</span>
+        {DELAY_OPTIONS.map((y) => (
+          <button
+            key={y}
+            onClick={() => setDelayYears(y)}
+            style={{
+              fontFamily: "'DM Sans',sans-serif",
+              fontSize: 13,
+              fontWeight: 600,
+              padding: '7px 14px',
+              borderRadius: 999,
+              border: `1px solid ${delayYears === y ? 'var(--accent-border)' : 'var(--border)'}`,
+              background: delayYears === y ? 'var(--accent-soft)' : 'var(--surface-2)',
+              color: delayYears === y ? 'var(--accent)' : 'var(--muted-2)',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+            }}
+          >{`${y} ${y === 1 ? 'año' : 'años'}`}</button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 20, minWidth: 0 }}>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{'Empiezas hoy'}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700, color: 'var(--success)', marginBottom: 4 }}>{fmt(finalVal)}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{`en ${goal.goalYears} años`}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 18, fontWeight: 300, flexShrink: 0 }}>{'→'}</div>
+
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--danger)', borderRadius: 14, padding: 18, minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{`Esperas ${delayYears} ${delayYears === 1 ? 'año' : 'años'}`}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 22, fontWeight: 700, color: 'var(--danger)', marginBottom: 4 }}>{fmt(delayedVal)}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{`solo ${effectiveYears} años invertidos`}</div>
+        </div>
+      </div>
+
+      <div style={{
+        background: 'rgba(239,68,68,0.07)',
+        border: '1px solid rgba(239,68,68,0.18)',
+        borderRadius: 14,
+        padding: 16,
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 12,
+      }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{'Valor que dejas ir'}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 19, fontWeight: 700, color: 'var(--danger)' }}>{`-${fmt(valueLost)}`}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{`${lostPct}% menos del proyectado`}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{'Para compensar necesitarías'}</div>
+          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 19, fontWeight: 700, color: 'var(--warning)' }}>
+            {Number.isFinite(extraMonthly) && extraMonthly < 200000000 ? `+${fmt(Math.ceil(extraMonthly / 100000) * 100000)}/mes` : 'Inviable'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{'adicionales al aporte actual'}</div>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+const GrowthBreakdown = ({ goal, finalVal, theme }) => {
+  const canvasRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+
+  const years = goal.goalYears;
+  const rate = goal.expectedReturn / 100;
+  const projections = projectByYear(goal.currentVal, rate, years, goal.monthlyAdd);
+  const contributions = Array.from({ length: years + 1 }, (_, i) =>
+    Math.round(Math.max(0, goal.currentVal) + Math.max(0, goal.monthlyAdd) * 12 * i)
+  );
+  const returns = projections.map((proj, i) => Math.max(0, Math.round(proj) - contributions[i]));
+
+  const totalContributed = contributions[years];
+  const totalReturns = Math.max(0, Math.round(finalVal) - totalContributed);
+  const multiplier = totalContributed > 0 ? (totalReturns / totalContributed).toFixed(1) : '0.0';
+
+  React.useEffect(() => {
+    if (!canvasRef.current || typeof Chart === 'undefined') return;
+    const styles = getComputedStyle(document.body);
+    const colors = {
+      text:    styles.getPropertyValue('--muted').trim(),
+      grid:    styles.getPropertyValue('--border').trim(),
+      surface: styles.getPropertyValue('--surface').trim(),
+      muted2:  styles.getPropertyValue('--muted-2').trim(),
+    };
+    const labels = Array.from({ length: years + 1 }, (_, i) => i === 0 ? 'Hoy' : String(CURRENT_YEAR + i));
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Capital aportado',        data: contributions, backgroundColor: 'rgba(59,130,246,0.65)', borderRadius: 4, borderSkipped: false },
+          { label: 'Generado por el dinero',   data: returns,       backgroundColor: 'rgba(34,197,94,0.70)',  borderRadius: 4, borderSkipped: false },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: colors.surface,
+            titleColor: styles.getPropertyValue('--text').trim(),
+            bodyColor: colors.muted2,
+            borderColor: colors.grid,
+            borderWidth: 1,
+            padding: 12,
+            callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` },
+          },
+        },
+        scales: {
+          x: { stacked: true, grid: { color: colors.grid }, ticks: { color: colors.text } },
+          y: { stacked: true, grid: { color: colors.grid }, ticks: { color: colors.text, callback: (v) => fmt(v) } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [goal, theme]);
+
+  return (
+    <Card style={{ marginBottom: 22 }}>
+      <SectionTitle>{'El dinero trabajando por ti'}</SectionTitle>
+      <div className="breakdown-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total aportado',          value: fmt(totalContributed), sub: 'Lo que pusiste de tu bolsillo',      color: 'var(--accent)' },
+          { label: 'Generado por el dinero',  value: fmt(totalReturns),     sub: 'Lo que creció solo',                 color: 'var(--success)' },
+          { label: 'Multiplicador',           value: `${multiplier}×`,      sub: `Por cada $1 tuyo el interés aportó $${multiplier}`, color: 'var(--text)' },
+        ].map(({ label, value, sub, color }) => (
+          <div key={label} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{label}</div>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 20, fontWeight: 600, color }}>{value}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
+        {[
+          ['rgba(59,130,246,0.65)', 'Capital aportado'],
+          ['rgba(34,197,94,0.70)',  'Generado por el dinero'],
+        ].map(([color, label]) => (
+          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 10, background: color, borderRadius: 3, display: 'inline-block' }} />
+            {label}
+          </span>
+        ))}
+      </div>
+      <div style={{ height: 220 }}><canvas ref={canvasRef} /></div>
+    </Card>
+  );
+};
+
+const SIGMA_PRESETS = [
+  { label: 'Renta fija',     sigma: 5  },
+  { label: 'Balanceado',     sigma: 10 },
+  { label: 'Renta variable', sigma: 17 },
+];
+
+const ProjectionChart = ({ goal, theme }) => {
+  const canvasRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+  const [sigma, setSigma] = React.useState(17);
+
+  React.useEffect(() => {
+    if (!canvasRef.current || typeof Chart === 'undefined') return;
+    const styles = getComputedStyle(document.body);
+    const colors = {
+      text:    styles.getPropertyValue('--muted').trim(),
+      grid:    styles.getPropertyValue('--border').trim(),
+      green:   styles.getPropertyValue('--success').trim(),
+      amber:   styles.getPropertyValue('--warning').trim(),
+      blue:    styles.getPropertyValue('--accent').trim(),
+      purple:  theme === 'light' ? '#7c3aed' : '#a78bfa',
+      surface: styles.getPropertyValue('--surface').trim(),
+    };
+
+    const rate      = goal.expectedReturn / 100;
+    const upperRate = rate + sigma / 100;
+    const lowerRate = Math.max(0, rate - sigma / 100);
+
+    const upperProj    = projectByYear(goal.currentVal, upperRate, goal.goalYears, goal.monthlyAdd);
+    const lowerProj    = projectByYear(goal.currentVal, lowerRate, goal.goalYears, goal.monthlyAdd);
+    const mainProj     = projectByYear(goal.currentVal, rate,      goal.goalYears, goal.monthlyAdd);
+    const noContribProj= projectByYear(goal.currentVal, rate,      goal.goalYears, 0);
+    const noReturnProj = projectByYear(goal.currentVal, 0,         goal.goalYears, goal.monthlyAdd);
+    const goalLine     = Array(goal.goalYears + 1).fill(goal.goalAmount);
+    const labels       = Array.from({ length: goal.goalYears + 1 }, (_, i) => i === 0 ? 'Hoy' : String(CURRENT_YEAR + i));
+
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: `Optimista (+${sigma}% vol.)`,
+            data: upperProj.map(Math.round),
+            borderColor: 'rgba(34,197,94,0.28)',
+            backgroundColor: 'rgba(34,197,94,0.09)',
+            fill: 1,
+            borderWidth: 1,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            tension: 0.28,
+          },
+          {
+            label: `Pesimista (-${sigma}% vol.)`,
+            data: lowerProj.map(Math.round),
+            borderColor: 'rgba(34,197,94,0.28)',
+            backgroundColor: 'transparent',
+            fill: false,
+            borderWidth: 1,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            tension: 0.28,
+          },
+          {
+            label: 'Tu proyección',
+            data: mainProj.map(Math.round),
+            borderColor: colors.green,
+            backgroundColor: 'transparent',
+            fill: false,
+            borderWidth: 2.5,
+            pointRadius: 3,
+            pointBackgroundColor: colors.green,
+            tension: 0.28,
+          },
+          {
+            label: 'Meta',
+            data: goalLine,
+            borderColor: colors.amber,
+            borderWidth: 2,
+            borderDash: [8, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+          {
+            label: 'Solo aportes',
+            data: noReturnProj.map(Math.round),
+            borderColor: colors.blue,
+            borderWidth: 1.6,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            tension: 0.28,
+            fill: false,
+          },
+          {
+            label: 'Sin aportes',
+            data: noContribProj.map(Math.round),
+            borderColor: colors.purple,
+            borderWidth: 1.6,
+            borderDash: [3, 5],
+            pointRadius: 0,
+            tension: 0.28,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: colors.surface,
+            titleColor: styles.getPropertyValue('--text').trim(),
+            bodyColor: styles.getPropertyValue('--muted-2').trim(),
+            borderColor: colors.grid,
+            borderWidth: 1,
+            padding: 12,
+            callbacks: { label: (ctx) => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) },
+          },
+        },
+        scales: {
+          y: { grid: { color: colors.grid }, ticks: { color: colors.text, callback: (v) => fmt(v) } },
+          x: { grid: { color: colors.grid }, ticks: { color: colors.text } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [goal, theme, sigma]);
+
+  return (
+    <Card>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+        <SectionTitle>{'Proyección hacia la meta'}</SectionTitle>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{'Volatilidad:'}</span>
+          {SIGMA_PRESETS.map(({ label, sigma: s }) => (
+            <button
+              key={label}
+              onClick={() => setSigma(s)}
+              style={{
+                fontFamily: "'DM Sans',sans-serif",
+                fontSize: 12, fontWeight: 600,
+                padding: '4px 10px', borderRadius: 999,
+                border: `1px solid ${sigma === s ? 'var(--accent-border)' : 'var(--border)'}`,
+                background: sigma === s ? 'var(--accent-soft)' : 'var(--surface-2)',
+                color: sigma === s ? 'var(--accent)' : 'var(--muted-2)',
+                cursor: 'pointer', transition: 'all 0.18s ease',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              {label}
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, opacity: 0.8 }}>{`±${s}%`}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 14, fontSize: 12, color: 'var(--muted)' }}>
+        {[
+          ['var(--success)',                              'Tu proyección'],
+          ['rgba(34,197,94,0.35)',                        `Rango ±${sigma}% vol.`],
+          ['var(--warning)',                              'Meta'],
+          ['var(--accent)',                               'Solo aportes'],
+          [theme === 'light' ? '#7c3aed' : '#a78bfa',    'Sin aportes'],
+        ].map(([color, label]) => (
+          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 3, background: color, borderRadius: 999 }} />
+            {label}
+          </span>
+        ))}
+      </div>
+      <div style={{ position: 'relative', height: 320 }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </Card>
+  );
+};
+
+const YearTable = ({ goal }) => {
+  const rate = goal.expectedReturn / 100;
+  const rows = projectByYear(goal.currentVal, rate, goal.goalYears, goal.monthlyAdd).map((val, index, arr) => {
+    const pctGoal = Math.round((val / goal.goalAmount) * 100);
+    const gain = index === 0 ? 0 : val - arr[index - 1];
+    const contributed = goal.currentVal + goal.monthlyAdd * 12 * index;
+    const remaining = Math.max(0, goal.goalAmount - val);
+    return { index, val, pctGoal, gain, contributed, remaining };
+  });
+  return (
+    <Card>
+      <SectionTitle>{'Tabla ano por ano'}</SectionTitle>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{'Ano'}</th>
+              <th>{'Valor'}</th>
+              <th>{'Ganancia'}</th>
+              <th>{'Capital aportado'}</th>
+              <th>{'% meta'}</th>
+              <th>{'Falta'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.index}>
+                <td>{row.index === 0 ? 'Hoy' : CURRENT_YEAR + row.index}</td>
+                <td className="mono" style={{ color: 'var(--success)' }}>{fmt(row.val)}</td>
+                <td className="mono">{row.index === 0 ? '-' : '+' + fmt(row.gain)}</td>
+                <td className="mono">{fmt(row.contributed)}</td>
+                <td className="mono" style={{ color: row.pctGoal >= 100 ? 'var(--success)' : row.pctGoal >= 70 ? 'var(--warning)' : 'var(--danger)' }}>{row.pctGoal + '%'}</td>
+                <td className="mono">{row.remaining > 0 ? fmt(row.remaining) : 'Meta alcanzada'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+};
+
+const GoalManager = ({ goals, activeGoalId, onSelect, onAddGoal, onRemoveGoal }) => (
+  <Card>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <SectionTitle>{'Múltiples metas'}</SectionTitle>
+      <button className="button" onClick={onAddGoal} disabled={goals.length >= MAX_GOALS}><PlusIcon />{'Agregar meta'}</button>
+    </div>
+    <div className="goal-stack">
+      {goals.map((goal) => {
+        const finalVal = futureValue(goal.currentVal, goal.expectedReturn / 100, goal.goalYears, goal.monthlyAdd);
+        const state = statusFromProjection(finalVal, goal.goalAmount);
+        const toneClass = state === 'green' ? 'status-green' : state === 'amber' ? 'status-amber' : 'status-red';
+        const isActive = goal.id === activeGoalId;
+        return (
+          <div
+            key={goal.id}
+            className="goal-row"
+            onClick={() => onSelect(goal.id)}
+            style={{
+              cursor: 'pointer',
+              borderColor: isActive ? 'var(--accent-border)' : undefined,
+              background: isActive ? 'var(--accent-soft)' : undefined,
+            }}
+          >
+            <div className="goal-row-left">
+              <div className="goal-row-title">{goal.title}</div>
+              <div className="goal-row-sub">{`${fmt(goal.monthlyAdd)}/mes · ${fmt(finalVal)} proyectado`}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+              <span className={'status-badge ' + toneClass}>{state === 'green' ? 'OK' : state === 'amber' ? 'Cerca' : 'Gap'}</span>
+              {goals.length > 1 ? (
+                <button className="icon-btn" title="Quitar meta" onClick={(e) => { e.stopPropagation(); onRemoveGoal(goal.id); }}><XIcon /></button>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </Card>
+);
+
+const CombinedOverview = ({ goals }) => {
+  const combinedRequired = goals.reduce((sum, goal) => sum + requiredMonthlyContrib(goal.currentVal, goal.goalAmount, goal.expectedReturn / 100, goal.goalYears), 0);
+  const combinedPlanned = goals.reduce((sum, goal) => sum + goal.monthlyAdd, 0);
+  const onTrackCount = goals.filter((goal) => futureValue(goal.currentVal, goal.expectedReturn / 100, goal.goalYears, goal.monthlyAdd) >= goal.goalAmount).length;
+  const totalGoalAmount = goals.reduce((sum, goal) => sum + goal.goalAmount, 0);
+  const monthlyGap = Math.max(0, combinedRequired - combinedPlanned);
+  return (
+    <div className="summary-grid">
+      <SummaryTile label={'Metas activas'} value={String(goals.length)} sub={'Puedes manejar varias metas al mismo tiempo'} />
+      <SummaryTile label={'Aporte combinado'} value={fmt(combinedPlanned)} sub={'Suma de los aportes definidos'} tone={'blue'} />
+      <SummaryTile label={'Necesario total'} value={fmt(Math.round(combinedRequired))} sub={'Aporte agregado meta por meta'} tone={monthlyGap > 0 ? 'amber' : 'green'} />
+      <SummaryTile label={'Capital objetivo'} value={fmt(totalGoalAmount)} sub={`${onTrackCount}/${goals.length} metas en camino`} tone={onTrackCount === goals.length ? 'green' : 'amber'} />
+    </div>
+  );
+};
+
+const OnboardingScreen = ({ draft, setDraft, onStart, theme, onToggleTheme }) => {
+  const selected = PURPOSE_MAP[draft.purpose] || PURPOSE_MAP.custom;
+  const previewGoal = createGoalFromOnboarding(draft);
+  return (
+    <div className="container">
+      <div className="topbar" style={{ marginBottom: 14 }}>
+        <div>
+          <h1 className="page-title"><span className="brand-mark">{'✦'}</span><span style={{ color:'var(--accent)' }}>{'Goal'}</span>{' planner'}</h1>
+          <p className="page-sub brand-tagline">{'Planea hoy. Llega mañana.'}</p>
+        </div>
+        <div className="toolbar">
+          <button className="ghost-button" onClick={onToggleTheme}>{theme === 'dark' ? <SunIcon /> : <MoonIcon />}<span className="theme-toggle-text">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span></button>
+        </div>
+      </div>
+      <Card className="onboarding-card" padding={28}>
+        <h2 className="onboarding-title">{'Armemos tu plan en 30 segundos'}</h2>
+        <p className="onboarding-sub">
+          {'Responde tres preguntas, te propongo un punto de partida y luego refinas todo en la vista avanzada.'}
+        </p>
+
+        <div style={{ marginBottom: 22 }}>
+          <SectionTitle>{'¿Para qué quieres ahorrar?'}</SectionTitle>
+          <div className="purpose-grid">
+            {['downpayment', 'retirement', 'vacation', 'custom'].map((purpose) => {
+              const option = PURPOSE_MAP[purpose];
+              return (
+                <button key={purpose} className={'purpose-card' + (draft.purpose === purpose ? ' active' : '')} onClick={() => setDraft((prev) => ({ ...prev, purpose }))}>
+                  <div className="purpose-card-title">{option.label}</div>
+                  <p className="purpose-card-copy">{option.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="setup-grid" style={{ marginBottom: 8 }}>
+          <Card padding={18} style={{ background: 'var(--surface-2)' }}>
+            <SectionTitle>{'\u00bfPara cu\u00e1ndo?'}</SectionTitle>
+            <div className="mono" style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{`${draft.years} ${draft.years === 1 ? 'año' : 'años'}`}</div>
+            <div className="page-sub" style={{ marginBottom: 10 }}>{`Meta proyectada al ${CURRENT_YEAR + draft.years}`}</div>
+            <SliderInput value={draft.years} min={1} max={MAX_YEARS} step={1} onChange={(e) => setDraft((prev) => ({ ...prev, years: +e.target.value }))} />
+          </Card>
+          <Card padding={18} style={{ background: 'var(--surface-2)' }}>
+            <SectionTitle>{'¿Cuánto puedes aportar por mes?'}</SectionTitle>
+            <div className="mono" style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{fmt(draft.monthly)}</div>
+            <div className="page-sub" style={{ marginBottom: 10 }}>{'Puedes afinarlo después, meta por meta'}</div>
+            <SliderInput value={draft.monthly} min={0} max={16000000} step={100000} onChange={(e) => setDraft((prev) => ({ ...prev, monthly: +e.target.value }))} />
+          </Card>
+        </div>
+
+        <div className="hero-grid" style={{ marginTop: 22 }}>
+          <Card padding={22} style={{ background: 'linear-gradient(135deg,var(--accent-soft),transparent)' }}>
+            <SectionTitle>{'Preview del plan'}</SectionTitle>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>{previewGoal.title}</div>
+            <p className="page-sub" style={{ marginBottom: 18 }}>
+              {`Te dejo una meta inicial de ${fmt(previewGoal.goalAmount)} a ${previewGoal.goalYears} años con ${fmt(previewGoal.monthlyAdd)}/mes.`}
+            </p>
+            <div className="hero-points">
+              <div className="hero-point">
+                <div className="hero-point-title">{'Retorno sugerido'}</div>
+                <div className="hero-point-value">{pct(previewGoal.expectedReturn / 100)}</div>
+              </div>
+              <div className="hero-point">
+                <div className="hero-point-title">{'Capital inicial'}</div>
+                <div className="hero-point-value">{fmt(previewGoal.currentVal)}</div>
+              </div>
+            </div>
+          </Card>
+          <Card className="hero-callout" padding={22}>
+            <strong>{selected.label}</strong>
+            <div className="page-sub">{selected.description}</div>
+            <div className="copy-pill">{'Después podrás agregar más metas, compartir tu plan y cambiar la apariencia cuando quieras.'}</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+              <button className="button" onClick={onStart}>{'Crear mi plan'}</button>
+            </div>
+          </Card>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const WhatsNewModal = ({ onClose }) => (
+  <div className="whats-new-overlay" onClick={onClose}>
+    <div className="whats-new-card" onClick={(e) => e.stopPropagation()}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
+        <div>
+          <div style={{ fontSize:11, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{'Novedades'}</div>
+          <div style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.03em' }}>{WHATS_NEW.version}</div>
+        </div>
+        <button className="icon-btn" onClick={onClose} style={{ border:'none' }}><XIcon /></button>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        {WHATS_NEW.items.map((item, i) => (
+          <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+            <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', marginTop:6, flexShrink:0 }} />
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, marginBottom:2 }}>{item.title}</div>
+              <div style={{ fontSize:13, color:'var(--muted)', lineHeight:1.45 }}>{item.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+function App() {
+  const [appState, setAppState] = React.useState(loadInitialState);
+  const [onboardingDraft, setOnboardingDraft] = React.useState(DEFAULT_ONBOARDING);
+  const [shareStatus, setShareStatus] = React.useState('');
+  const [showWhatsNew, setShowWhatsNew] = React.useState(false);
+
+  React.useEffect(() => {
+    document.body.setAttribute('data-theme', appState.theme);
+  }, [appState.theme]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        theme: appState.theme,
+        goals: appState.goals.map(serializeGoal),
+        activeGoalId: appState.activeGoalId,
+        onboardingComplete: appState.onboardingComplete,
+      }));
+    } catch (error) {
+      console.warn('No se pudo guardar localStorage:', error);
+    }
+    syncUrlState(appState);
+  }, [appState]);
+
+  const activeGoal = appState.goals.find((goal) => goal.id === appState.activeGoalId) || appState.goals[0];
+
+  const patchGoal = (goalId, patch) => {
+    setAppState((prev) => ({
+      ...prev,
+      goals: prev.goals.map((goal, index) => goal.id === goalId ? sanitizeGoal({ ...goal, ...patch }, index) : goal),
+    }));
+  };
+
+  const addGoal = () => {
+    setAppState((prev) => {
+      if (prev.goals.length >= MAX_GOALS) return prev;
+      const newGoal = createGoal({ title: 'Meta ' + (prev.goals.length + 1) }, prev.goals.length);
+      return {
+        ...prev,
+        goals: [...prev.goals, newGoal],
+        activeGoalId: newGoal.id,
+        onboardingComplete: true,
+      };
+    });
+  };
+
+  const removeGoal = (goalId) => {
+    setAppState((prev) => {
+      if (prev.goals.length === 1) return prev;
+      const remaining = prev.goals.filter((goal) => goal.id !== goalId);
+      const nextActive = prev.activeGoalId === goalId ? remaining[0].id : prev.activeGoalId;
+      return { ...prev, goals: remaining, activeGoalId: nextActive };
+    });
+  };
+
+  const restartOnboarding = () => {
+    setOnboardingDraft(DEFAULT_ONBOARDING);
+    setAppState((prev) => ({ ...prev, onboardingComplete: false }));
+  };
+
+  const toggleTheme = () => {
+    setAppState((prev) => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }));
+  };
+
+  const copyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareStatus('Link copiado');
+      window.setTimeout(() => setShareStatus(''), 1800);
+    } catch (error) {
+      setShareStatus('Copialo desde la barra de direccion');
+      window.setTimeout(() => setShareStatus(''), 2200);
+    }
+  };
+
+  const startFromOnboarding = () => {
+    const firstGoal = createGoalFromOnboarding(onboardingDraft);
+    setAppState((prev) => ({
+      ...prev,
+      goals: [firstGoal],
+      activeGoalId: firstGoal.id,
+      onboardingComplete: true,
+    }));
+  };
+
+  if (!appState.onboardingComplete) {
+    return (
+      <OnboardingScreen
+        draft={onboardingDraft}
+        setDraft={setOnboardingDraft}
+        onStart={startFromOnboarding}
+        theme={appState.theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
+
+  const rate = activeGoal.expectedReturn / 100;
+  const finalVal = futureValue(activeGoal.currentVal, rate, activeGoal.goalYears, activeGoal.monthlyAdd);
+  const eta = yearsToGoal(activeGoal.currentVal, activeGoal.goalAmount, rate, activeGoal.monthlyAdd);
+  const offTrack = finalVal < activeGoal.goalAmount;
+  const reqMonthly = requiredMonthlyContrib(activeGoal.currentVal, activeGoal.goalAmount, rate, activeGoal.goalYears);
+  const reqRateWithContrib = offTrack ? requiredRateWithContrib(activeGoal.currentVal, activeGoal.monthlyAdd, activeGoal.goalAmount, activeGoal.goalYears) : 0;
+  const hints = {
+    expectedReturn: offTrack && Number.isFinite(reqRateWithContrib) ? `Necesitas ${pct(reqRateWithContrib)} anual con tus aportes actuales` : null,
+    monthlyAdd: offTrack && reqMonthly > 0 ? `Con ${fmt(Math.ceil(reqMonthly / 100000) * 100000)}/mes llegarias en este plazo` : null,
+    goalYears: Number.isFinite(eta) ? `Con tu configuracion llegas en ${eta} ${eta === 1 ? 'año' : 'años'} (${CURRENT_YEAR + eta})` : 'Con esta configuracion la meta queda muy lejos',
+  };
+
+  return (
+    <div className="container">
+      <div className="topbar">
+        <div>
+          <h1 className="page-title"><span className="brand-mark">{'✦'}</span><span style={{ color:'var(--accent)' }}>{'Goal'}</span>{' planner'}</h1>
+          <p className="page-sub brand-tagline">{'Planea hoy. Llega mañana.'}</p>
+        </div>
+        <div className="toolbar">
+          <button className="version-pill" onClick={() => setShowWhatsNew(true)}>{'✦ Nuevo'}</button>
+          <button className="ghost-button" onClick={restartOnboarding}><RefreshIcon /><span className="theme-toggle-text">{'Rehacer onboarding'}</span></button>
+          <button className="ghost-button" onClick={copyShareLink}>{shareStatus ? <CheckIcon /> : <ShareIcon />}{shareStatus || 'Compartir'}</button>
+          <button className="ghost-button" onClick={toggleTheme}>{appState.theme === 'dark' ? <SunIcon /> : <MoonIcon />}<span className="theme-toggle-text">{appState.theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span></button>
+        </div>
+      </div>
+      {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
+
+      <Card padding={22} style={{ background: 'linear-gradient(135deg,var(--surface),var(--surface-2))', marginBottom: 20 }}>
+        <SectionTitle>{'Plan activo'}</SectionTitle>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em', marginBottom: 6 }}>{activeGoal.title}</div>
+          <div className="page-sub">{`${PURPOSE_MAP[activeGoal.goalPurpose].label} · ${fmt(activeGoal.goalAmount)} en ${activeGoal.goalYears} ${activeGoal.goalYears === 1 ? 'año' : 'años'}`}</div>
+        </div>
+        <div className="hero-points">
+          <div className="hero-point">
+            <div className="hero-point-title">{'Aporte actual'}</div>
+            <div className="hero-point-value">{fmt(activeGoal.monthlyAdd) + '/mes'}</div>
+          </div>
+          <div className="hero-point">
+            <div className="hero-point-title">{'Retorno esperado'}</div>
+            <div className="hero-point-value">{pct(rate)}</div>
+          </div>
+          <div className="hero-point">
+            <div className="hero-point-title">{'Valor proyectado'}</div>
+            <div className="hero-point-value">{fmt(finalVal)}</div>
+          </div>
+          <div className="hero-point">
+            <div className="hero-point-title">{'ETA estimada'}</div>
+            <div className="hero-point-value">{Number.isFinite(eta) ? String(CURRENT_YEAR + eta) : 'Sin ETA'}</div>
+          </div>
+        </div>
+      </Card>
+
+      <CombinedOverview goals={appState.goals} />
+
+      <div className="goal-management-grid">
+        <GoalManager
+          goals={appState.goals}
+          activeGoalId={activeGoal.id}
+          onSelect={(goalId) => setAppState((prev) => ({ ...prev, activeGoalId: goalId }))}
+          onAddGoal={addGoal}
+          onRemoveGoal={removeGoal}
+        />
+        <div>
+          <div className="setup-grid">
+            <StartingPointCard goal={activeGoal} onPatch={(patch) => patchGoal(activeGoal.id, patch)} hints={hints} />
+            <GoalCard
+              goal={activeGoal}
+              onPatch={(patch) => patchGoal(activeGoal.id, patch)}
+              hintGoalYears={hints.goalYears}
+              canRemove={appState.goals.length > 1}
+              onRemove={() => removeGoal(activeGoal.id)}
+            />
+          </div>
+
+          <VerdictBanner goal={activeGoal} finalVal={finalVal} eta={eta} onPatch={(patch) => patchGoal(activeGoal.id, patch)} />
+
+          <div className="progress-grid">
+            <ProgressRing goal={activeGoal} finalVal={finalVal} />
+            <MetricRow goal={activeGoal} finalVal={finalVal} />
+          </div>
+
+          <div style={{ marginBottom: 22 }}>
+            <WhatIfGrid goal={activeGoal} onPatch={(patch) => patchGoal(activeGoal.id, patch)} />
+          </div>
+
+          <InflationAdjuster goal={activeGoal} finalVal={finalVal} />
+
+          <CostOfWaiting goal={activeGoal} finalVal={finalVal} />
+
+          <GrowthBreakdown goal={activeGoal} finalVal={finalVal} theme={appState.theme} />
+
+          <div style={{ marginBottom: 22 }}>
+            <ProjectionChart goal={activeGoal} theme={appState.theme} />
+          </div>
+
+          <div style={{ marginBottom: 22 }}>
+            <YearTable goal={activeGoal} />
+          </div>
+        </div>
+      </div>
+
+      <Card className="disclaimer" padding={18}>
+        <strong style={{ color: 'var(--muted-2)' }}>{'Disclaimer:'}</strong>{' '}
+        {'Esta herramienta asume rendimientos compuestos mensuales y constantes, lo cual sigue siendo una simplificacion. Sirve para planificar, comparar escenarios y discutir prioridades, no como prediccion de mercado.'}
+      </Card>
+
+      <div style={{ textAlign: 'center', padding: '20px 0 6px', color: 'var(--muted)', fontSize: 12 }}>
+        <div style={{ marginBottom: 5, fontSize: 13, fontWeight: 500, fontStyle: 'italic', color: 'var(--muted-2)' }}>{'Planea hoy. Llega mañana.'}</div>
+        <span style={{ color: 'var(--accent)', marginRight: 5, fontSize: 11 }}>{'✦'}</span>
+        {`© ${CURRENT_YEAR} Goal Planner · v1.4`}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
+
