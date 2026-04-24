@@ -1,50 +1,62 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Goal Planner Constitution
+
+Goal Planner is a single-file, zero-build personal finance planner in COP. These principles are non-negotiable; any change that violates them needs an explicit amendment.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Single-File Simplicity (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+The entire app ships as one `index.html`. No bundler, no `node_modules`, no build step, no transpile pipeline beyond the in-browser Babel Standalone CDN. Adding a build tool, framework scaffold, or split source tree requires a constitutional amendment. Dependencies are loaded via CDN and pinned by version.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. COP-Native UX
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+The app is built for Colombian Pesos and Spanish-speaking users. Money inputs must use `es-CO` thousands separators with dynamic formatting and cursor preservation. Large-scale abbreviations must respect Spanish numerical semantics — use `MM` for miles de millones; never `B`, because "billón" in `es-CO` means a trillion. All user-facing strings are Spanish.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Zero-Friction Deploy
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Deployment is a static file drop. `python -m http.server 3000` must be enough to run the app locally and Netlify's default static hosting must be enough in production. Any feature that requires a server, a backend process, or an environment variable breaks this principle and must be refactored or scoped out.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Responsive First
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Every view must remain usable down to 375px width. Grid collapses at 980px, toolbar tightens at 720px. Toolbar controls must follow the icon + `.theme-toggle-text` pattern so labels hide gracefully on mobile. A feature is not considered done until it has been scroll-verified at 375px.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Progressive Disclosure + Explainability
+
+Before a destructive or consequential action (apply a scenario, reset onboarding, clear data), the user sees a confirmation that explains *what changes, why, and the expected impact*. Quick-scenario tiles must route through `ScenarioModal`. "Lo nuevo" must document every user-visible change.
+
+### VI. Respect React's Rules
+
+Hooks are never called after a conditional return. When a prop flips behavior enough to change hook order, split into two components and dispatch between them. Controlled inputs reconcile external state only when they are not focused (`document.activeElement !== inputRef.current`).
+
+### VII. Brand Consistency
+
+Wordmark, logomark (`✦`), accent color (`--accent`), and tagline (*Planea hoy. Llega mañana.*) appear together on every page-level header. Favicon and footer must stay in sync with the wordmark. Visual additions should be minimal and token-driven via CSS custom properties.
+
+## Technical Constraints
+
+- **Stack**: React 18, ReactDOM 18, Babel Standalone, Chart.js 4.4.1 — all via CDN, all pinned
+- **Persistence**: `localStorage` under a versioned `STORAGE_KEY`; schema bumps require a migration path or a fresh-start fallback
+- **Sharing**: URL query params only; no backend, no account system
+- **Browser targets**: modern evergreen browsers (Chrome, Edge, Firefox, Safari). IE is not supported
+- **Accessibility**: inputs use `inputMode` where applicable; icon-only buttons keep an accessible label via adjacent `.theme-toggle-text` span
+- **Testing**: there is no automated test suite. All changes must be manually verified in a real browser — eval-based synthetic event tests are unreliable and do not count as verification
+
+## Development Workflow
+
+- **Spec-driven**: use the spec-kit workflows under `.specify/` and the `speckit-git-*` skills for feature branches, commits, and validation
+- **Commits**: small, focused, present-tense in Spanish or English as appropriate; never commit `.claude/settings.local.json` permission churn unless the user explicitly asks
+- **Version bumps**: update the `v` string in the footer and add a `WHATS_NEW` bullet for every user-visible change
+- **Live preview**: use the `Claude_Preview` MCP server during development; always re-verify at 375px before merging
+- **Secrets**: there are none. If a change needs a secret, it violates Principle III
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc conventions. Amendments require:
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+1. A written rationale in the PR or session
+2. Corresponding updates to `CLAUDE.md` if conventions change
+3. A version bump of this document (semver: MAJOR for principle removal/replacement, MINOR for new principles, PATCH for clarifications)
+
+All changes must verify compliance before being applied. Complexity must be justified against Principles I and III.
+
+**Version**: 1.0.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-04-22
