@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goal Planner · Empieza tu plan</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='50%25' y='78%25' font-size='26' text-anchor='middle' fill='%232563eb'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<style>
+/* ─── Design tokens — light (default) + dark ──────────────────── */
+:root,
+body[data-theme="dark"] {
+  --bg:           #0c0c0f;
+  --bg-glow:      rgba(59,130,246,0.16);
+  --surface:      #141418;
+  --surface-2:    #1c1c22;
+  --surface-3:    #101014;
+  --text:         #e8e6e1;
+  --muted:        #6a6960;
+  --muted-2:      #9a9890;
+  --border:       rgba(255,255,255,0.08);
+  --accent:       #3b82f6;
+  --accent-soft:  rgba(59,130,246,0.12);
+  --accent-border:rgba(59,130,246,0.32);
+  --success:      #22c55e;
+  --warning:      #f59e0b;
+  --danger:       #ef4444;
+  --shadow:       0 16px 40px rgba(0,0,0,0.22);
+}
+body[data-theme="light"] {
+  --bg:           #f3efe4;
+  --bg-glow:      rgba(59,130,246,0.10);
+  --surface:      #ffffff;
+  --surface-2:    #f8f5ee;
+  --surface-3:    #f2ede3;
+  --text:         #171717;
+  --muted:        #667085;
+  --muted-2:      #475467;
+  --border:       rgba(15,23,42,0.12);
+  --accent:       #2563eb;
+  --accent-soft:  rgba(37,99,235,0.10);
+  --accent-border:rgba(37,99,235,0.24);
+  --success:      #16a34a;
+  --warning:      #d97706;
+  --danger:       #dc2626;
+  --shadow:       0 16px 28px rgba(15,23,42,0.08);
+}
+
+/* ─── Reset + base ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(900px 500px at 0% -5%, var(--bg-glow), transparent 60%),
+    radial-gradient(700px 400px at 100% 110%, rgba(34,197,94,0.06), transparent 55%);
+}
+#root { position: relative; z-index: 1; }
+
+input, button, select { font-family: inherit; }
+button { cursor: pointer; }
+
+/* ─── Stage chrome ────────────────────────────────────────────── */
+.stage {
+  min-height: 100vh;
+  padding: 18px 22px 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.stage-bar {
+  width: 100%; max-width: 1280px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  position: sticky; top: 14px; z-index: 50;
+}
+.stage-bar .grp { display: flex; align-items: center; gap: 8px; }
+.stage-bar .title { font-weight: 700; font-size: 12px; letter-spacing: -0.01em; color: var(--muted-2); }
+.stage-bar .seg {
+  display: inline-flex;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px; gap: 2px;
+}
+.stage-bar .seg button {
+  border: 0; background: transparent; padding: 5px 11px; font-size: 11px; font-weight: 600;
+  color: var(--muted-2); cursor: pointer; border-radius: 999px;
+  transition: background 0.18s, color 0.18s;
+}
+.stage-bar .seg button[aria-pressed="true"] {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.scrn-select {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 30px 7px 11px; font-size: 11px; font-weight: 600;
+  color: var(--text); cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 12 8'><path d='M1 1.5L6 6.5L11 1.5' stroke='%23808a9d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+.ico-btn {
+  width: 32px; height: 32px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  display: grid; place-items: center; color: var(--text);
+  transition: background 0.18s;
+}
+.ico-btn:hover { background: var(--surface); }
+
+/* ─── Viewport ────────────────────────────────────────────────── */
+.viewport {
+  width: 100%; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(15,23,42,0.10); overflow: hidden;
+  transition: max-width 0.25s ease;
+}
+body[data-theme="dark"] .viewport { box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+.viewport.mobile  { max-width: 390px; }
+.viewport.tablet  { max-width: 768px; }
+.viewport.desktop { max-width: 1280px; }
+
+/* ─── Slider thumb (cross-browser) ──────────────────────────── */
+input[type=range] { -webkit-appearance: none; appearance: none; outline: 0; }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px; height: 15px; border-radius: 999px;
+  background: var(--accent); border: 2px solid var(--surface);
+  cursor: pointer; transition: transform 0.15s ease;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 999px;
+  background: var(--accent); border: 2px solid var(--surface); cursor: pointer;
+}
+
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: fadeIn 0.3s ease both; }
+</style>
+</head>
+<body data-theme="light">
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+const css = (v) => `var(${v})`;
+
+/* ═══════════════════════════════════════════════════════════════
+   LIB — math + primitives
+═══════════════════════════════════════════════════════════════ */
+const COP = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+const fmtCOP = (n) => !isFinite(n) ? '—' : '$ ' + COP.format(Math.round(n));
+const fmtAbbrev = (n) => {
+  if (!isFinite(n)) return '—';
+  const abs = Math.abs(n), sign = n < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + '$' + (abs / 1e9).toFixed(1).replace(/\.0$/, '') + 'MM';
+  if (abs >= 1e6) return sign + '$' + (abs / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (abs >= 1e3) return sign + '$' + (abs / 1e3).toFixed(0) + 'K';
+  return sign + '$' + COP.format(abs);
+};
+
+const requiredMonthly = (pv, fv, rate, years) => {
+  if (rate <= 0) { const need = fv - pv; return need > 0 ? need / (years * 12) : 0; }
+  let projected = pv;
+  for (let i = 0; i < years; i++) projected *= (1 + rate);
+  const gap = fv - projected;
+  if (gap <= 0) return 0;
+  let fvAnnuity = 0;
+  for (let i = 0; i < years; i++) fvAnnuity += Math.pow(1 + rate, i);
+  return Math.max(0, (gap / fvAnnuity) / 12);
+};
+
+/* ─── Primitives ──────────────────────────────────────────────── */
+const Label = ({ children, style }) => (
+  <div style={{
+    fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+    textTransform: 'uppercase', color: css('--muted'), ...style,
+  }}>{children}</div>
+);
+
+const Field = ({ label, children }) => (
+  <div style={{ display: 'grid', gap: 7, marginBottom: 14 }}>
+    <Label>{label}</Label>
+    {children}
+  </div>
+);
+
+const Chip = ({ active, onClick, children }) => (
+  <button onClick={onClick} style={{
+    background: active ? css('--accent-soft') : css('--surface-2'),
+    border: `1px solid ${active ? css('--accent-border') : css('--border')}`,
+    color: active ? css('--accent') : css('--text'),
+    borderRadius: 999, padding: '7px 12px',
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    transition: 'all 0.18s ease',
+  }}>{children}</button>
+);
+
+const VersionPill = ({ children = '✦ Nuevo', onClick }) => (
+  <button onClick={onClick} style={{
+    background: css('--accent-soft'), border: `1px solid ${css('--accent-border')}`,
+    color: css('--accent'), borderRadius: 999, padding: '5px 13px',
+    fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+    cursor: onClick ? 'pointer' : 'default',
+  }}>{children}</button>
+);
+
+/* ─── CurrencyInput ───────────────────────────────────────────── */
+const CurrencyInput = ({ value, onChange, ariaLabel }) => {
+  const ref = useRef(null);
+  const [focus, setFocus] = useState(false);
+  const display = '$ ' + COP.format(Math.max(0, Math.round(value || 0)));
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/[^\d]/g, '');
+    const numeric = raw === '' ? 0 : parseInt(raw, 10);
+    const caret = e.target.selectionStart || 0;
+    const digitsLeft = e.target.value.slice(0, caret).replace(/[^\d]/g, '').length;
+    onChange(numeric);
+    requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const next = ref.current.value;
+      let pos = 0, seen = 0;
+      while (pos < next.length && seen < digitsLeft) { if (/\d/.test(next[pos])) seen++; pos++; }
+      ref.current.setSelectionRange(pos, pos);
+    });
+  };
+  return (
+    <input ref={ref} type="text" inputMode="numeric" aria-label={ariaLabel}
+      value={display} onChange={handleChange}
+      onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+      style={{
+        background: css('--surface-2'),
+        border: `1px solid ${focus ? css('--accent-border') : css('--border')}`,
+        borderRadius: 12, padding: '11px 12px', width: '100%', textAlign: 'right',
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 500,
+        color: css('--text'), outline: 0, transition: 'border-color 0.18s ease',
+        boxShadow: focus ? `0 0 0 4px ${css('--accent-soft')}` : 'none',
+      }}
+    />
+  );
+};
+
+/* ─── SliderInput ─────────────────────────────────────────────── */
+const SliderInput = ({ value, min, max, step = 1, onChange, ariaLabel }) => {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <input type="range" min={min} max={max} step={step} value={value} aria-label={ariaLabel}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      style={{
+        width: '100%', height: 4, borderRadius: 999, outline: 0, cursor: 'pointer',
+        background: `linear-gradient(to right, ${css('--accent')} ${pct}%, rgba(128,138,157,.22) ${pct}%)`,
+      }}
+    />
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH COMPONENTS — atoms specific to the auth surface
+═══════════════════════════════════════════════════════════════ */
+
+/* Wordmark */
+const Wordmark = ({ size = 18 }) => (
+  <div style={{
+    display: 'inline-flex', alignItems: 'baseline', gap: 5,
+    fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: css('--text'),
+  }}>
+    <span style={{ color: css('--accent'), fontSize: size + 4, lineHeight: 1, transform: 'translateY(2px)', display: 'inline-block' }}>✦</span>
+    <span style={{ color: css('--accent') }}>Goal</span>
+    <span>planner</span>
+  </div>
+);
+
+/* AuthInput */
+const AuthInput = ({ type = 'email', value, onChange, placeholder, autoFocus, ariaLabel, error }) => {
+  const [focus, setFocus] = useState(false);
+  return (
+    <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder} autoFocus={autoFocus} aria-label={ariaLabel}
+      onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+      style={{
+        width: '100%', background: css('--surface-2'),
+        border: `1px solid ${error ? css('--danger') : focus ? css('--accent-border') : css('--border')}`,
+        borderRadius: 12, padding: '12px 14px',
+        fontSize: 14, fontWeight: 500, color: css('--text'), outline: 0,
+        transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+        boxShadow: focus && !error ? `0 0 0 4px ${css('--accent-soft')}` : 'none',
+      }}
+    />
+  );
+};
+
+/* AuthButton */
+const AuthButton = ({ kind = 'primary', icon, children, onClick, fullWidth = true, disabled, type = 'button' }) => {
+  const base = {
+    fontSize: 14, fontWeight: 600, borderRadius: 12, padding: '12px 18px',
+    cursor: disabled ? 'default' : 'pointer', transition: 'all 0.18s ease',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+    width: fullWidth ? '100%' : 'auto', opacity: disabled ? 0.5 : 1,
+    border: '1px solid transparent',
+  };
+  const styles = {
+    primary: { ...base, background: css('--accent'), color: '#fff', borderColor: css('--accent') },
+    ghost:   { ...base, background: 'transparent', color: css('--text'), borderColor: css('--border') },
+    soft:    { ...base, background: css('--accent-soft'), color: css('--accent'), borderColor: css('--accent-border') },
+    oauth:   { ...base, background: css('--surface'), color: css('--text'), borderColor: css('--border'), fontWeight: 500 },
+  };
+  return (
+    <button type={type} onClick={onClick} disabled={disabled} style={styles[kind] || styles.primary}>
+      {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+      <span>{children}</span>
+    </button>
+  );
+};
+
+/* Google + Apple icons */
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+    <path d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.71v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.61z" fill="#4285F4"/>
+    <path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.92v2.32A9 9 0 0 0 9 18z" fill="#34A853"/>
+    <path d="M3.97 10.71A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.16.29-1.71V4.96H.92A9 9 0 0 0 0 9c0 1.45.35 2.83.92 4.04l3.05-2.33z" fill="#FBBC05"/>
+    <path d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .92 4.96L3.97 7.3C4.68 5.16 6.66 3.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+);
+
+const AppleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden fill="currentColor">
+    <path d="M14.55 9.49c-.02-2.04 1.66-3.02 1.74-3.07-.95-1.39-2.43-1.58-2.96-1.6-1.26-.13-2.46.74-3.1.74-.65 0-1.63-.72-2.68-.7-1.38.02-2.65.8-3.36 2.04-1.43 2.48-.36 6.16 1.04 8.18.68 1 1.5 2.11 2.55 2.07 1.02-.04 1.41-.66 2.65-.66 1.23 0 1.59.66 2.68.64 1.1-.02 1.81-1.01 2.49-2.01.78-1.16 1.1-2.28 1.12-2.34-.02-.02-2.15-.83-2.17-3.29zM12.62 3.46c.56-.69.94-1.64.83-2.6-.81.04-1.79.54-2.37 1.22-.52.6-.97 1.57-.85 2.5.9.07 1.83-.45 2.39-1.12z"/>
+  </svg>
+);
+
+/* Divider */
+const Divider = ({ children = 'o' }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 12,
+    color: css('--muted'), fontSize: 12, fontWeight: 500,
+    margin: '2px 0',
+  }}>
+    <span style={{ flex: 1, height: 1, background: css('--border') }} />
+    <span>{children}</span>
+    <span style={{ flex: 1, height: 1, background: css('--border') }} />
+  </div>
+);
+
+/* Inline link */
+const InlineLink = ({ children, onClick }) => (
+  <button onClick={onClick} style={{
+    background: 'transparent', border: 0, color: css('--accent'),
+    fontSize: 'inherit', fontWeight: 600, padding: 0, cursor: 'pointer',
+    textDecoration: 'underline', textUnderlineOffset: 3,
+  }}>{children}</button>
+);
+
+/* StepDots */
+const StepDots = ({ total, current }) => (
+  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+    {Array.from({ length: total }).map((_, i) => (
+      <span key={i} style={{
+        width: i === current ? 22 : 6, height: 6, borderRadius: 999,
+        background: i <= current ? css('--accent') : css('--surface-2'),
+        border: `1px solid ${i <= current ? css('--accent-border') : css('--border')}`,
+        transition: 'width 0.25s ease, background 0.25s ease',
+        display: 'inline-block',
+      }} />
+    ))}
+  </div>
+);
+
+/* StatRow */
+const StatRow = ({ label, value, accent, last }) => (
+  <div style={{
+    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
+    padding: '10px 0',
+    borderBottom: last ? 'none' : `1px dashed ${css('--border')}`,
+  }}>
+    <span style={{ fontSize: 13, color: css('--muted-2') }}>{label}</span>
+    <span style={{
+      fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 14,
+      color: accent ? css('--accent') : css('--text'),
+    }}>{value}</span>
+  </div>
+);
+
+/* Spinner */
+const Spinner = () => (
+  <div style={{ position: 'relative', width: 44, height: 44 }}>
+    <svg viewBox="0 0 50 50" width="44" height="44"
+         style={{ animation: 'auth-spin 0.9s linear infinite', display: 'block' }}>
+      <circle cx="25" cy="25" r="20" fill="none" stroke={css('--surface-2')} strokeWidth="4"/>
+      <circle cx="25" cy="25" r="20" fill="none" stroke={css('--accent')} strokeWidth="4"
+              strokeDasharray="60 80" strokeLinecap="round"/>
+    </svg>
+  </div>
+);
+
+/* LiveProjection chart */
+const easeOutCubic = (x) => 1 - Math.pow(1 - x, 3);
+const LiveProjection = ({ height = 180 }) => {
+  const W = 600, H = height;
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    let raf;
+    const start = performance.now();
+    const tick = (now) => {
+      const e = Math.min(1, (now - start) / 1400);
+      setT(easeOutCubic(e));
+      if (e < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const years = 6;
+  const values = Array.from({ length: years * 12 + 1 }, (_, i) => {
+    const m = i / (years * 12);
+    return Math.pow(m, 1.7);
+  });
+  const points = values.map((v, i) => [
+    (i / (values.length - 1)) * (W - 40) + 20,
+    H - 30 - v * (H - 60),
+  ]);
+  const visCount = Math.max(2, Math.floor(points.length * t));
+  const vis = points.slice(0, visCount);
+  const path = vis.map(([x, y], i) => (i === 0 ? `M ${x},${y}` : `L ${x},${y}`)).join(' ');
+  const last = vis[vis.length - 1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="proj-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 1, 2, 3].map((i) => (
+        <line key={i} x1="20" x2={W - 20} y1={30 + i * (H - 60) / 3} y2={30 + i * (H - 60) / 3}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="2 4" />
+      ))}
+      <line x1="20" x2={W - 20} y1={30} y2={30} stroke="var(--success)" strokeWidth="1" strokeDasharray="4 3" opacity="0.6"/>
+      <text x={W - 24} y={24} fontFamily="'JetBrains Mono', monospace" fontSize="10" fill="var(--success)" textAnchor="end">$240M · meta</text>
+      {Array.from({ length: years + 1 }).map((_, i) => (
+        <text key={i} x={(i / years) * (W - 40) + 20} y={H - 8}
+              fontFamily="'JetBrains Mono', monospace" fontSize="9.5"
+              fill="var(--muted)" textAnchor="middle">{2026 + i}</text>
+      ))}
+      {vis.length > 2 && (
+        <path d={`${path} L ${last[0]},${H - 30} L ${vis[0][0]},${H - 30} Z`}
+              fill="url(#proj-fill)" />
+      )}
+      <path d={path} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {last && (
+        <>
+          <circle cx={last[0]} cy={last[1]} r="5" fill="var(--accent)" />
+          <circle cx={last[0]} cy={last[1]} r="9" fill="var(--accent)" opacity="0.18" />
+        </>
+      )}
+    </svg>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT SHELLS
+═══════════════════════════════════════════════════════════════ */
+const FormCard = ({ children, vw }) => (
+  <div className="fade-in" style={{
+    background: css('--surface'),
+    border: `1px solid ${css('--border')}`,
+    borderRadius: 18,
+    padding: vw === 'mobile' ? 22 : 28,
+    boxShadow: css('--shadow'),
+    width: '100%',
+    maxWidth: vw === 'desktop' ? 460 : 480,
+    display: 'flex', flexDirection: 'column', gap: 16,
+  }}>{children}</div>
+);
+
+const CenteredFrame = ({ vw, children }) => (
+  <div style={{
+    minHeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: vw === 'mobile' ? '24px 22px' : '40px 48px',
+  }}>
+    <div style={{ width: '100%', maxWidth: 460 }}>{children}</div>
+  </div>
+);
+
+const SplitLayout = ({ vw, narrative, form }) => {
+  if (vw === 'desktop') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: 700, gap: 0 }}>
+        <div style={{
+          padding: '40px 48px',
+          background: `linear-gradient(135deg, ${css('--surface-2')}, ${css('--surface-3')})`,
+          borderRight: `1px solid ${css('--border')}`,
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        }}>{narrative}</div>
+        <div style={{ padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {form}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', minHeight: 700,
+      padding: vw === 'tablet' ? '32px 48px' : '24px 22px 32px',
+      gap: vw === 'mobile' ? 18 : 24,
+      alignItems: 'center',
+    }}>
+      <div style={{ width: '100%', maxWidth: vw === 'tablet' ? 540 : 'none' }}>{narrative}</div>
+      <div style={{ width: '100%', maxWidth: vw === 'tablet' ? 540 : 'none' }}>{form}</div>
+    </div>
+  );
+};
+
+/* Narrative left half */
+const Narrative = ({ vw }) => {
+  const compact = vw !== 'desktop';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 16 : 28 }}>
+      {!compact && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Wordmark size={20} />
+          <VersionPill>✦ v1.4 · ahora</VersionPill>
+        </div>
+      )}
+      <div>
+        <h1 style={{
+          fontSize: vw === 'mobile' ? 26 : vw === 'tablet' ? 36 : 44,
+          lineHeight: 1.05, fontWeight: 700, letterSpacing: '-0.03em', color: css('--text'),
+        }}>
+          Empieza con $500K hoy.<br />
+          <span style={{ color: css('--accent') }}>Llega a $240M en 6 años.</span>
+        </h1>
+        <p style={{
+          marginTop: 14, fontSize: vw === 'mobile' ? 14 : 16, lineHeight: 1.55,
+          color: css('--muted-2'), maxWidth: 460,
+        }}>
+          Define la meta. Ajusta los aportes. Mira cómo crece —
+          antes de empezar a ahorrar.
+        </p>
+      </div>
+      <div style={{
+        background: css('--surface'),
+        border: `1px solid ${css('--border')}`,
+        borderRadius: 16, padding: compact ? 14 : 18,
+        boxShadow: css('--shadow'),
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Label>Proyección de tu meta</Label>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: css('--muted') }}>
+            $1.800.000/mes · 9,5%
+          </span>
+        </div>
+        <LiveProjection height={compact ? 120 : 190} />
+      </div>
+      {!compact && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {['Cuota inicial', 'Retiro', 'Fondo de emergencia', 'Vacaciones', 'Educación'].map((l) => (
+            <Chip key={l}>{l}</Chip>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH SCREENS
+═══════════════════════════════════════════════════════════════ */
+
+/* 1. Welcome */
+const Welcome = ({ vw, go }) => {
+  const [email, setEmail] = useState('');
+  return (
+    <SplitLayout vw={vw} narrative={<Narrative vw={vw} />}
+      form={
+        <FormCard vw={vw}>
+          <div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>
+              Empieza tu plan
+            </h2>
+            <p style={{ marginTop: 6, fontSize: 13, color: css('--muted-2'), lineHeight: 1.5 }}>
+              Detectamos automáticamente si ya tienes cuenta — usa el mismo correo.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <AuthButton kind="oauth" icon={<GoogleIcon />} onClick={() => go('verifying')}>
+              Continuar con Google
+            </AuthButton>
+            <AuthButton kind="oauth" icon={<AppleIcon />} onClick={() => go('verifying')}>
+              Continuar con Apple
+            </AuthButton>
+          </div>
+          <Divider>o con tu correo</Divider>
+          <form onSubmit={(e) => { e.preventDefault(); if (email.includes('@')) go('linkSent'); }}
+                style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <Label>Correo</Label>
+              <AuthInput value={email} onChange={setEmail} placeholder="tu@correo.com"
+                         autoFocus ariaLabel="Correo electrónico" />
+            </div>
+            <AuthButton kind="primary" type="submit">Enviar enlace mágico →</AuthButton>
+          </form>
+          <p style={{ fontSize: 12, color: css('--muted'), lineHeight: 1.5 }}>
+            Al continuar aceptas los{' '}
+            <InlineLink onClick={() => {}}>Términos</InlineLink>{' '}
+            y la <InlineLink onClick={() => {}}>Política de privacidad</InlineLink>.
+          </p>
+        </FormCard>
+      }
+    />
+  );
+};
+
+/* 2. Magic link sent */
+const LinkSent = ({ vw, go }) => {
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  return (
+    <CenteredFrame vw={vw}>
+      <FormCard vw={vw}>
+        <div style={{ textAlign: 'center', display: 'grid', gap: 14, justifyItems: 'center' }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 18,
+            background: css('--accent-soft'), border: `1px solid ${css('--accent-border')}`,
+            display: 'grid', placeItems: 'center', color: css('--accent'),
+          }}>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path d="M3 7l9 6 9-6"/>
+            </svg>
+          </div>
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Revisa tu correo</h2>
+            <p style={{ marginTop: 8, fontSize: 14, color: css('--muted-2'), lineHeight: 1.55 }}>
+              Te enviamos un enlace seguro a<br />
+              <strong style={{ color: css('--text'), fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
+                maria@correo.com
+              </strong>
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <AuthButton kind="ghost" disabled={resending} onClick={() => {
+            setResending(true);
+            setTimeout(() => { setResending(false); setResent(true); }, 700);
+          }}>
+            {resending ? 'Reenviando…' : resent ? 'Enlace reenviado ✓' : 'Reenviar enlace'}
+          </AuthButton>
+          <AuthButton kind="ghost" onClick={() => go('welcome')}>Cambiar correo</AuthButton>
+        </div>
+        <p style={{ textAlign: 'center', fontSize: 12, color: css('--muted') }}>
+          El enlace expira en 15 minutos.{' '}
+          <InlineLink onClick={() => go('verifying')}>Probar enlace →</InlineLink>
+        </p>
+      </FormCard>
+    </CenteredFrame>
+  );
+};
+
+/* 3. Verifying */
+const Verifying = ({ vw, go }) => {
+  useEffect(() => {
+    const t = setTimeout(() => go('onboarding1'), 1600);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <CenteredFrame vw={vw}>
+      <FormCard vw={vw}>
+        <div style={{ textAlign: 'center', display: 'grid', gap: 16, justifyItems: 'center', padding: '12px 0' }}>
+          <Spinner />
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
+              Confirmando tu enlace…
+            </h2>
+            <p style={{ marginTop: 6, fontSize: 13, color: css('--muted-2') }}>Solo un segundo.</p>
+          </div>
+        </div>
+      </FormCard>
+    </CenteredFrame>
+  );
+};
+
+/* ─── Onboarding purposes ─────────────────────────────────────── */
+const purposes = [
+  { id: 'cuota',      title: 'Cuota inicial',       sub: 'Apartamento o casa',      amount: 240_000_000, years: 6  },
+  { id: 'retiro',     title: 'Retiro',               sub: 'Largo plazo',             amount: 800_000_000, years: 25 },
+  { id: 'fondo',      title: 'Fondo de emergencia',  sub: '3–6 meses de gastos',     amount: 30_000_000,  years: 2  },
+  { id: 'vacaciones', title: 'Vacaciones',            sub: 'Viaje o experiencia',     amount: 12_000_000,  years: 1  },
+  { id: 'educacion',  title: 'Educación',             sub: 'Tuya o de los tuyos',     amount: 80_000_000,  years: 5  },
+  { id: 'otro',       title: 'Otra meta',             sub: 'Tú la describes',         amount: 50_000_000,  years: 3  },
+];
+
+const referenceCopy = (id, amount) => {
+  const m = amount / 1e6;
+  if (id === 'cuota')      return `$${Math.round(m)}M ≈ cuota inicial 30% para apartamento de $${Math.round(m * 3.33)}M en Bogotá.`;
+  if (id === 'retiro')     return `$${Math.round(m)}M cubre ~25 años de retiro con un retiro mensual de $${Math.round(m / 300).toLocaleString('es-CO')}K.`;
+  if (id === 'fondo')      return `$${Math.round(m)}M ≈ ${Math.round(m / 5)} meses de gastos para una persona en Bogotá.`;
+  if (id === 'vacaciones') return `$${Math.round(m)}M alcanza para un viaje de 2 semanas en Europa para dos.`;
+  if (id === 'educacion')  return `$${Math.round(m)}M cubre ~${Math.round(m / 16)} semestres de pregrado en universidad privada.`;
+  return `$${Math.round(m)}M es el objetivo que definiste — ajústalo cuando quieras.`;
+};
+
+/* Onboarding shell */
+const OnbShell = ({ vw, step, total = 3, title, subtitle, children, onBack, onNext, nextLabel, primary }) => (
+  <CenteredFrame vw={vw}>
+    <FormCard vw={vw}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Label>Paso {step + 1} de {total}</Label>
+        <StepDots total={total} current={step} />
+      </div>
+      <div>
+        <h2 style={{ fontSize: vw === 'mobile' ? 22 : 26, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+          {title}
+        </h2>
+        {subtitle && (
+          <p style={{ marginTop: 8, fontSize: 13, color: css('--muted-2'), lineHeight: 1.55 }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+      <div>{children}</div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+        {onBack
+          ? <AuthButton kind="ghost" onClick={onBack} fullWidth={false}>← Atrás</AuthButton>
+          : <AuthButton kind="ghost" onClick={() => {}} fullWidth={false}>Saltar</AuthButton>
+        }
+        <div style={{ flex: 1 }}>
+          <AuthButton kind={primary || 'primary'} onClick={onNext}>{nextLabel} →</AuthButton>
+        </div>
+      </div>
+    </FormCard>
+  </CenteredFrame>
+);
+
+/* 4. Onboarding — propósito */
+const Onboarding1 = ({ vw, go, draft, setDraft }) => (
+  <OnbShell vw={vw} step={0}
+    title="¿Qué quieres lograr?"
+    subtitle="Elige el propósito de tu primera meta. Puedes agregar más después."
+    onNext={() => go('onboarding2')} nextLabel="Siguiente">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+      {purposes.map((p) => {
+        const active = draft.purposeId === p.id;
+        return (
+          <button key={p.id}
+            onClick={() => setDraft({ ...draft, purposeId: p.id, amount: p.amount, years: p.years })}
+            style={{
+              textAlign: 'left',
+              background: active ? css('--accent-soft') : css('--surface-2'),
+              border: `1px solid ${active ? css('--accent-border') : css('--border')}`,
+              borderRadius: 14, padding: 14, cursor: 'pointer', color: css('--text'),
+              transition: 'all 0.18s ease',
+              display: 'flex', flexDirection: 'column', gap: 4, minHeight: 78,
+              position: 'relative',
+            }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: active ? css('--accent') : css('--text') }}>
+              {p.title}
+            </span>
+            <span style={{ fontSize: 12, color: css('--muted') }}>{p.sub}</span>
+            {active && (
+              <span style={{
+                position: 'absolute', top: 10, right: 10,
+                width: 18, height: 18, borderRadius: 999, background: css('--accent'),
+                display: 'grid', placeItems: 'center', color: '#fff', fontSize: 11, fontWeight: 700,
+              }}>✓</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  </OnbShell>
+);
+
+/* 5. Onboarding — monto */
+const Onboarding2 = ({ vw, go, draft, setDraft }) => {
+  const presets = [10_000_000, 30_000_000, 50_000_000, 100_000_000, 240_000_000, 500_000_000];
+  const purpose = purposes.find(p => p.id === draft.purposeId) || purposes[0];
+  return (
+    <OnbShell vw={vw} step={1}
+      title="¿Cuánto necesitas?"
+      subtitle="Aproximado está bien — puedes ajustarlo cuando quieras."
+      onBack={() => go('onboarding1')} onNext={() => go('onboarding3')} nextLabel="Siguiente">
+      <Field label="Monto objetivo">
+        <CurrencyInput value={draft.amount} onChange={(v) => setDraft({ ...draft, amount: v })}
+                       ariaLabel="Monto de la meta" />
+      </Field>
+      <Label style={{ marginBottom: 8 }}>O elige un preset</Label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+        {presets.map((v) => (
+          <Chip key={v} active={draft.amount === v} onClick={() => setDraft({ ...draft, amount: v })}>
+            {fmtAbbrev(v)}
+          </Chip>
+        ))}
+      </div>
+      <div style={{
+        padding: 14, borderRadius: 14,
+        background: css('--surface-2'), border: `1px solid ${css('--border')}`,
+      }}>
+        <Label style={{ marginBottom: 6 }}>Referencia</Label>
+        <p style={{ fontSize: 13, color: css('--muted-2'), lineHeight: 1.5 }}>
+          {referenceCopy(purpose.id, draft.amount)}
+        </p>
+      </div>
+    </OnbShell>
+  );
+};
+
+/* 6. Onboarding — plazo */
+const Onboarding3 = ({ vw, go, draft, setDraft }) => {
+  const rate = 0.095;
+  const monthly = requiredMonthly(500_000, draft.amount, rate, draft.years);
+  return (
+    <OnbShell vw={vw} step={2}
+      title="¿En cuánto tiempo?"
+      subtitle="El plazo afecta cuánto debes aportar al mes."
+      onBack={() => go('onboarding2')} onNext={() => go('done')}
+      nextLabel="Crear mi meta ✦" primary="primary">
+      <Field label={`Plazo · ${draft.years} ${draft.years === 1 ? 'año' : 'años'}`}>
+        <SliderInput value={draft.years} min={1} max={30}
+                     onChange={(v) => setDraft({ ...draft, years: v })}
+                     ariaLabel="Años para alcanzar la meta" />
+      </Field>
+      <div style={{
+        marginTop: 16, padding: 16, borderRadius: 16,
+        background: `linear-gradient(135deg, ${css('--accent-soft')}, transparent)`,
+        border: `1px solid ${css('--accent-border')}`,
+      }}>
+        <Label style={{ color: css('--accent'), marginBottom: 6 }}>Tu plan propuesto</Label>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: css('--accent') }}>
+          {fmtAbbrev(draft.amount)} en {draft.years} {draft.years === 1 ? 'año' : 'años'}
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <StatRow label="Aporte mensual" value={fmtCOP(monthly)} accent />
+          <StatRow label="Rendimiento estimado" value="9,5% E.A." />
+          <StatRow label="Capital inicial" value={fmtCOP(500_000)} last />
+        </div>
+      </div>
+    </OnbShell>
+  );
+};
+
+/* 7. Done */
+const Done = ({ vw, go }) => (
+  <CenteredFrame vw={vw}>
+    <FormCard vw={vw}>
+      <div style={{ display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 18,
+          background: css('--accent-soft'), border: `1px solid ${css('--accent-border')}`,
+          display: 'grid', placeItems: 'center', color: css('--accent'), fontSize: 26,
+        }}>✦</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          Tu meta está lista
+        </h2>
+        <p style={{ fontSize: 14, color: css('--muted-2'), lineHeight: 1.55 }}>
+          Te llevamos al panel para que ajustes los detalles y agregues más metas.
+        </p>
+      </div>
+      <AuthButton kind="primary" onClick={() => window.location.href = 'index.html'}>
+        Entrar al panel →
+      </AuthButton>
+      <AuthButton kind="ghost" onClick={() => go('welcome')}>Volver al inicio</AuthButton>
+    </FormCard>
+  </CenteredFrame>
+);
+
+/* 8. Returning login */
+const Returning = ({ vw, go }) => {
+  const [email, setEmail] = useState('');
+  return (
+    <CenteredFrame vw={vw}>
+      <FormCard vw={vw}>
+        <div>
+          <Wordmark size={20} />
+          <h2 style={{ margin: '14px 0 6px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+            Bienvenido de vuelta
+          </h2>
+          <p style={{ fontSize: 13, color: css('--muted-2'), lineHeight: 1.55 }}>
+            Entra para revisar tus metas.
+          </p>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <AuthButton kind="oauth" icon={<GoogleIcon />} onClick={() => go('verifying')}>
+            Continuar con Google
+          </AuthButton>
+          <AuthButton kind="oauth" icon={<AppleIcon />} onClick={() => go('verifying')}>
+            Continuar con Apple
+          </AuthButton>
+        </div>
+        <Divider>o</Divider>
+        <form onSubmit={(e) => { e.preventDefault(); if (email.includes('@')) go('linkSent'); }}
+              style={{ display: 'grid', gap: 12 }}>
+          <Field label="Correo">
+            <AuthInput value={email} onChange={setEmail} placeholder="tu@correo.com"
+                       ariaLabel="Correo electrónico" autoFocus />
+          </Field>
+          <AuthButton kind="primary" type="submit">Enviar enlace mágico →</AuthButton>
+        </form>
+        <p style={{ fontSize: 12, color: css('--muted'), textAlign: 'center' }}>
+          ¿Sin cuenta? Solo escribe tu correo y la creamos.
+        </p>
+      </FormCard>
+    </CenteredFrame>
+  );
+};
+
+/* 9. Link expired */
+const LinkExpired = ({ vw, go }) => (
+  <CenteredFrame vw={vw}>
+    <FormCard vw={vw}>
+      <div style={{ display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center' }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 18,
+          background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.32)',
+          color: css('--danger'), display: 'grid', placeItems: 'center',
+        }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l3 2"/>
+          </svg>
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>El enlace expiró</h2>
+        <p style={{ fontSize: 14, color: css('--muted-2'), lineHeight: 1.55 }}>
+          Por seguridad, los enlaces solo duran 15 minutos.<br />
+          Te enviamos otro al instante.
+        </p>
+      </div>
+      <AuthButton kind="primary" onClick={() => go('linkSent')}>Enviar enlace nuevo</AuthButton>
+      <AuthButton kind="ghost" onClick={() => go('welcome')}>Volver al inicio</AuthButton>
+    </FormCard>
+  </CenteredFrame>
+);
+
+/* ═══════════════════════════════════════════════════════════════
+   APP — harness with stage chrome (theme / viewport / screen)
+═══════════════════════════════════════════════════════════════ */
+const screens = [
+  { id: 'welcome',     label: '01 · Welcome' },
+  { id: 'linkSent',    label: '02 · Enlace enviado' },
+  { id: 'verifying',   label: '03 · Verificando' },
+  { id: 'onboarding1', label: '04 · Onboarding · Propósito' },
+  { id: 'onboarding2', label: '05 · Onboarding · Monto' },
+  { id: 'onboarding3', label: '06 · Onboarding · Plazo' },
+  { id: 'done',        label: '07 · Listo' },
+  { id: 'returning',   label: '08 · Login (vuelta)' },
+  { id: 'linkExpired', label: '09 · Enlace expirado' },
+];
+
+const screenMap = {
+  welcome: Welcome, linkSent: LinkSent, verifying: Verifying,
+  onboarding1: Onboarding1, onboarding2: Onboarding2, onboarding3: Onboarding3,
+  done: Done, returning: Returning, linkExpired: LinkExpired,
+};
+
+const MoonIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+const SunIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/>
+    <line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/>
+    <line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>
+);
+
+function App() {
+  const [theme, setTheme] = useState('light');
+  const [vw, setVw] = useState('desktop');
+  const [screen, setScreen] = useState('welcome');
+  const [draft, setDraft] = useState({ purposeId: 'cuota', amount: 240_000_000, years: 6 });
+
+  useEffect(() => { document.body.dataset.theme = theme; }, [theme]);
+
+  const Screen = screenMap[screen];
+  const go = (next) => setScreen(next);
+
+  return (
+    <div className="stage">
+      {/* ── Stage bar ── */}
+      <div className="stage-bar">
+        <div className="grp">
+          <Wordmark size={13} />
+          <span style={{ width: 1, height: 16, background: css('--border'), margin: '0 6px' }} />
+          <span className="title">Auth · hi-fi</span>
+        </div>
+        <div className="grp" style={{ gap: 8 }}>
+          <select className="scrn-select" value={screen}
+                  onChange={(e) => setScreen(e.target.value)} aria-label="Pantalla">
+            {screens.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+
+          <div className="seg">
+            {['mobile','tablet','desktop'].map((v) => (
+              <button key={v} aria-pressed={vw === v} onClick={() => setVw(v)}>
+                {v === 'mobile' ? '390' : v === 'tablet' ? '768' : '1280'}
+              </button>
+            ))}
+          </div>
+
+          <button className="ico-btn" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+                  aria-label="Cambiar tema">
+            {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Viewport ── */}
+      <div className={`viewport ${vw}`}>
+        <Screen key={screen} vw={vw} go={go} draft={draft} setDraft={setDraft} theme={theme} />
+      </div>
+
+      {/* ── Footer label ── */}
+      <div style={{ fontSize: 12, color: css('--muted'), fontWeight: 500 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{vw}</span>
+        {' · '}{screens.find(s => s.id === screen)?.label}
+        {' · '}
+        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+          {vw === 'mobile' ? '390px' : vw === 'tablet' ? '768px' : '1280px'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
