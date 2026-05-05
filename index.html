@@ -2221,8 +2221,11 @@ function App() {
     if (typeof db !== 'undefined' && user) {
       const t = window.setTimeout(async () => {
         try {
+          const isUUID = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+          const goalsToSync = appState.goals.filter((g) => isUUID(g.id));
+          if (!goalsToSync.length) return;
           await db.from('goals').upsert(
-            appState.goals.map((g) => ({
+            goalsToSync.map((g) => ({
               id: g.id,
               user_id: user.id,
               title: g.title,
@@ -2291,7 +2294,7 @@ function App() {
     if (!user || !appState.onboardingComplete || typeof db === 'undefined') return;
     db.from('profiles')
       .update({ onboarding_complete: true })
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .then(({ error }) => { if (error) console.warn('[supabase] mark onboarding failed:', error.message); });
   }, [user, appState.onboardingComplete]);
 

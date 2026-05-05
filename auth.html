@@ -697,7 +697,7 @@ const Verifying = ({ vw, go, isProto }) => {
       if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
         subscription.unsubscribe();
         clearTimeout(safetyTimer);
-        const { data: profile } = await db.from('profiles').select('onboarding_complete').eq('user_id', session.user.id).single();
+        const { data: profile } = await db.from('profiles').select('onboarding_complete').eq('id', session.user.id).single();
         if (profile?.onboarding_complete) {
           window.location.href = 'index.html';
         } else {
