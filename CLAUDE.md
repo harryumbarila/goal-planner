@@ -10,21 +10,37 @@ shell commands, and other important information, read the current plan
 ## Project Overview
 
 - **Product**: `Goal Planner — Planea hoy. Llega mañana.`
-- **Version**: v1.4
+- **Version**: v1.5
 - **Audience**: personal use + close friends (not a public product)
 - **Locale**: Spanish (Colombia), `es-CO`
 - **Currency**: COP only (uses `MM` for miles de millones, never "B" — "billón" in Spanish = 1 trillion)
-- **Deployment**: Netlify (static hosting — drop `index.html` and it runs)
+- **Deployment**: Netlify (static hosting — drop `index.html`, `auth.html`, `supabase-config.js` and it runs)
 
 ## Architecture
 
-**Single-file React app.** Everything lives in `index.html`:
+**Two-file React app + shared config.** Everything lives in three static files:
 
-- React 18 + ReactDOM + Babel Standalone (via CDN)
+| File | Role |
+|------|------|
+| `auth.html` | Sign-in / onboarding (magic link, Google OAuth, 3-step goal setup) |
+| `index.html` | Main planner app (requires active Supabase session) |
+| `supabase-config.js` | Shared Supabase client (`db`) — loaded by both HTML files |
+
+- React 18 + ReactDOM + Babel Standalone + supabase-js 2 (all via CDN, no build step)
 - Chart.js 4.4.1 (via CDN)
-- No build step, no bundler, no package.json
-- All state held in React; persistence via `localStorage` under a versioned `STORAGE_KEY`
+- **Auth**: Supabase Auth — magic link + Google OAuth. `auth.html` → `index.html` via URL params
+- **Persistence**: `localStorage` (primary, instant) + Supabase `goals` table (secondary, debounced 2 s sync)
+- **Prototype mode**: `auth.html` shows the stage chrome when run on `localhost` or with `?proto` — hides in production
 - Shareable links use URL query params that hydrate state on load
+
+### Supabase project
+
+- **Project**: `goal-planner` (`bdkngcagwcraoivqlmow`, region `sa-east-1`)
+- **URL**: `https://bdkngcagwcraoivqlmow.supabase.co`
+- **Anon key**: in `supabase-config.js` (safe to commit — RLS enforces row-level security)
+- **Schema**: `profiles`, `goals`, `snapshots`, `events` (append-only)
+- **RLS**: every table restricted to `auth.uid() = user_id`
+- **Google OAuth**: requires setup in Google Cloud Console (see Supabase Dashboard → Auth → Providers)
 
 ### Key components inside `index.html`
 

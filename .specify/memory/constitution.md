@@ -14,7 +14,7 @@ The app is built for Colombian Pesos and Spanish-speaking users. Money inputs mu
 
 ### III. Zero-Friction Deploy
 
-Deployment is a static file drop. `python -m http.server 3000` must be enough to run the app locally and Netlify's default static hosting must be enough in production. Any feature that requires a server, a backend process, or an environment variable breaks this principle and must be refactored or scoped out.
+Deployment is a static file drop. `python -m http.server 3000` must be enough to run the app locally and Netlify's default static hosting must be enough in production. External services (Supabase) are allowed as CDN-loaded SDKs with no build step; credentials are public anon keys committed to `supabase-config.js` (RLS enforces row-level security). Any feature that requires a private server process or a secret env-var breaks this principle.
 
 ### IV. Responsive First
 
@@ -34,9 +34,11 @@ Wordmark, logomark (`✦`), accent color (`--accent`), and tagline (*Planea hoy.
 
 ## Technical Constraints
 
-- **Stack**: React 18, ReactDOM 18, Babel Standalone, Chart.js 4.4.1 — all via CDN, all pinned
-- **Persistence**: `localStorage` under a versioned `STORAGE_KEY`; schema bumps require a migration path or a fresh-start fallback
-- **Sharing**: URL query params only; no backend, no account system
+- **Stack**: React 18, ReactDOM 18, Babel Standalone, Chart.js 4.4.1, supabase-js 2 — all via CDN, all pinned
+- **Auth**: Supabase Auth (magic link + Google OAuth). `auth.html` handles the full sign-in/onboarding flow; `index.html` guards with `db.auth.getSession()` on boot
+- **Persistence**: primary = `localStorage` (STORAGE_KEY versioned); secondary = Supabase `goals` table synced in background (debounced 2 s, fire-and-forget). RLS ensures each user sees only their own rows
+- **Backend**: Supabase project `bdkngcagwcraoivqlmow` (sa-east-1). Schema: `profiles`, `goals`, `snapshots`, `events`. Credentials in `supabase-config.js` (anon key; safe to commit)
+- **Sharing**: URL query params hydrate state on load; Supabase session persists across devices
 - **Browser targets**: modern evergreen browsers (Chrome, Edge, Firefox, Safari). IE is not supported
 - **Accessibility**: inputs use `inputMode` where applicable; icon-only buttons keep an accessible label via adjacent `.theme-toggle-text` span
 - **Testing**: there is no automated test suite. All changes must be manually verified in a real browser — eval-based synthetic event tests are unreliable and do not count as verification
@@ -59,4 +61,4 @@ This constitution supersedes ad-hoc conventions. Amendments require:
 
 All changes must verify compliance before being applied. Complexity must be justified against Principles I and III.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-04-22
+**Version**: 1.1.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-05-05

@@ -12,6 +12,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -948,6 +950,7 @@ const CheckIcon = () => <Icon><polyline points="20 6 9 17 4 12"/></Icon>;
 const MoonIcon  = () => <Icon><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Icon>;
 const SunIcon   = () => <Icon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></Icon>;
 const RefreshIcon = () => <Icon><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Icon>;
+const LogoutIcon = () => <Icon viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Icon>;
 const PlusIcon  = () => <Icon><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
 const XIcon     = () => <Icon size={14}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
 
@@ -2179,6 +2182,24 @@ function App() {
   const [onboardingDraft, setOnboardingDraft] = React.useState(DEFAULT_ONBOARDING);
   const [shareStatus, setShareStatus] = React.useState('');
   const [showWhatsNew, setShowWhatsNew] = React.useState(false);
+  const [user, setUser] = React.useState(null);  // null=loading, obj=authenticated
+
+  // Auth guard: check session on boot, redirect to auth.html if not signed in
+  React.useEffect(() => {
+    if (typeof db === 'undefined') return; // supabase not loaded
+    let sub;
+    db.auth.getSession().then(({ data: { session } }) => {
+      if (!session) { window.location.href = 'auth.html'; return; }
+      setUser(session.user);
+    });
+    const { data: { subscription } } = db.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') { window.location.href = 'auth.html'; return; }
+      if (session) setUser(session.user);
+    });
+    sub = subscription;
+    return () => { if (sub) sub.unsubscribe(); };
+  }, []);
+
 
   React.useEffect(() => {
     document.body.setAttribute('data-theme', appState.theme);
@@ -2196,7 +2217,29 @@ function App() {
       console.warn('No se pudo guardar localStorage:', error);
     }
     syncUrlState(appState);
-  }, [appState]);
+    // Background sync to Supabase (debounced 2s, fire-and-forget)
+    if (typeof db !== 'undefined' && user) {
+      const t = window.setTimeout(async () => {
+        try {
+          await db.from('goals').upsert(
+            appState.goals.map((g) => ({
+              id: g.id,
+              user_id: user.id,
+              title: g.title,
+              goal_purpose: g.goalPurpose,
+              current_val:  Math.round(g.currentVal),
+              monthly_add:  Math.round(g.monthlyAdd),
+              goal_amount:  Math.round(g.goalAmount),
+              expected_return: g.expectedReturn,
+              goal_years:   g.goalYears,
+            })),
+            { onConflict: 'id' }
+          );
+        } catch(e) { console.warn('[supabase] sync failed:', e.message); }
+      }, 2000);
+      return () => window.clearTimeout(t);
+    }
+  }, [appState, user]);
 
   const activeGoal = appState.goals.find((goal) => goal.id === appState.activeGoalId) || appState.goals[0];
 
@@ -2237,6 +2280,11 @@ function App() {
   const toggleTheme = () => {
     setAppState((prev) => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }));
   };
+  const signOut = async () => {
+    try { if (typeof db !== 'undefined') await db.auth.signOut(); } catch(e) {}
+    window.location.href = 'auth.html';
+  };
+
 
   const copyShareLink = async () => {
     try {
@@ -2295,6 +2343,7 @@ function App() {
           <button className="ghost-button" onClick={restartOnboarding}><RefreshIcon /><span className="theme-toggle-text">{'Rehacer onboarding'}</span></button>
           <button className="ghost-button" onClick={copyShareLink}>{shareStatus ? <CheckIcon /> : <ShareIcon />}{shareStatus || 'Compartir'}</button>
           <button className="ghost-button" onClick={toggleTheme}>{appState.theme === 'dark' ? <SunIcon /> : <MoonIcon />}<span className="theme-toggle-text">{appState.theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span></button>
+          <button className="ghost-button" onClick={signOut} title="Cerrar sesion"><LogoutIcon /><span className="theme-toggle-text">Salir</span></button>
         </div>
       </div>
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}

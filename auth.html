@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es-CO">
 <head>
 <meta charset="UTF-8">
@@ -11,6 +11,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
 <style>
 /* ─── Design tokens — light (default) + dark ──────────────────── */
 :root,
@@ -579,8 +581,9 @@ const Narrative = ({ vw }) => {
 ═══════════════════════════════════════════════════════════════ */
 
 /* 1. Welcome */
-const Welcome = ({ vw, go }) => {
-  const [email, setEmail] = useState('');
+const Welcome = ({ vw, go, email, setEmail, handleGoogleAuth, handleMagicLink }) => {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError  ] = useState('');
   return (
     <SplitLayout vw={vw} narrative={<Narrative vw={vw} />}
       form={
@@ -590,35 +593,45 @@ const Welcome = ({ vw, go }) => {
               Empieza tu plan
             </h2>
             <p style={{ marginTop: 6, fontSize: 13, color: css('--muted-2'), lineHeight: 1.5 }}>
-              Detectamos automáticamente si ya tienes cuenta — usa el mismo correo.
+              Detectamos si ya tienes cuenta. Usa el mismo correo.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
-            <AuthButton kind="oauth" icon={<GoogleIcon />} onClick={() => go('verifying')}>
+            <AuthButton kind="oauth" icon={<GoogleIcon />} disabled={loading}
+              onClick={async () => {
+                setLoading(true); setError('');
+                try { await handleGoogleAuth(); }
+                catch(e) { setError(e.message); setLoading(false); }
+              }}>
               Continuar con Google
-            </AuthButton>
-            <AuthButton kind="oauth" icon={<AppleIcon />} onClick={() => go('verifying')}>
-              Continuar con Apple
             </AuthButton>
           </div>
           <Divider>o con tu correo</Divider>
-          <form onSubmit={(e) => { e.preventDefault(); if (email.includes('@')) go('linkSent'); }}
-                style={{ display: 'grid', gap: 12 }}>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!email.includes('@')) return;
+            setLoading(true); setError('');
+            try { await handleMagicLink(email); go('linkSent'); }
+            catch(e) { setError(e.message); setLoading(false); }
+          }} style={{ display: 'grid', gap: 12 }}>
             <div style={{ display: 'grid', gap: 6 }}>
               <Label>Correo</Label>
               <AuthInput value={email} onChange={setEmail} placeholder="tu@correo.com"
-                         autoFocus ariaLabel="Correo electrónico" />
+                         autoFocus ariaLabel="Correo" />
             </div>
-            <AuthButton kind="primary" type="submit">Enviar enlace mágico →</AuthButton>
+            {error && <p style={{ fontSize:12, color:css('--danger') }}>{error}</p>}
+            <AuthButton kind="primary" type="submit" disabled={loading || !email.includes('@')}>
+              {loading ? 'Enviando...' : 'Enviar enlace magico'}
+            </AuthButton>
           </form>
           <p style={{ fontSize: 12, color: css('--muted'), lineHeight: 1.5 }}>
             Al continuar aceptas los{' '}
-            <InlineLink onClick={() => {}}>Términos</InlineLink>{' '}
-            y la <InlineLink onClick={() => {}}>Política de privacidad</InlineLink>.
+            <InlineLink onClick={() => {}}>Terminos</InlineLink>{' '}
+            y la <InlineLink onClick={() => {}}>Privacidad</InlineLink>.
           </p>
           <div style={{ textAlign: 'center', paddingTop: 2 }}>
             <InlineLink onClick={() => { window.location.href = 'index.html'; }}>
-              Ya tengo mi plan, ir al panel →
+              Ya tengo mi plan, ir al panel
             </InlineLink>
           </div>
         </FormCard>
@@ -626,19 +639,18 @@ const Welcome = ({ vw, go }) => {
     />
   );
 };
-
 /* 2. Magic link sent */
-const LinkSent = ({ vw, go }) => {
+const LinkSent = ({ vw, go, email, handleResend }) => {
   const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
+  const [resent,    setResent   ] = useState(false);
   return (
     <CenteredFrame vw={vw}>
       <FormCard vw={vw}>
-        <div style={{ textAlign: 'center', display: 'grid', gap: 14, justifyItems: 'center' }}>
+        <div style={{ textAlign:'center', display:'grid', gap:14, justifyItems:'center' }}>
           <div style={{
-            width: 56, height: 56, borderRadius: 18,
-            background: css('--accent-soft'), border: `1px solid ${css('--accent-border')}`,
-            display: 'grid', placeItems: 'center', color: css('--accent'),
+            width:56, height:56, borderRadius:18,
+            background:css('--accent-soft'), border:`1px solid ${css('--accent-border')}`,
+            display:'grid', placeItems:'center', color:css('--accent'),
           }}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -647,56 +659,71 @@ const LinkSent = ({ vw, go }) => {
             </svg>
           </div>
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>Revisa tu correo</h2>
-            <p style={{ marginTop: 8, fontSize: 14, color: css('--muted-2'), lineHeight: 1.55 }}>
-              Te enviamos un enlace seguro a<br />
-              <strong style={{ color: css('--text'), fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
-                maria@correo.com
+            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.02em' }}>Revisa tu correo</h2>
+            <p style={{ marginTop:8, fontSize:14, color:css('--muted-2'), lineHeight:1.55 }}>
+              Te enviamos un enlace a<br/>
+              <strong style={{ color:css('--text'), fontFamily:"'JetBrains Mono',monospace", fontSize:13 }}>
+                {email || 'tu correo'}
               </strong>
             </p>
           </div>
         </div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <AuthButton kind="ghost" disabled={resending} onClick={() => {
+        <div style={{ display:'grid', gap:10 }}>
+          <AuthButton kind="ghost" disabled={resending} onClick={async () => {
             setResending(true);
+            try { if (handleResend) await handleResend(email); } catch(e) { console.warn(e.message); }
             setTimeout(() => { setResending(false); setResent(true); }, 700);
           }}>
-            {resending ? 'Reenviando…' : resent ? 'Enlace reenviado ✓' : 'Reenviar enlace'}
+            {resending ? 'Reenviando...' : resent ? 'Enlace reenviado OK' : 'Reenviar enlace'}
           </AuthButton>
           <AuthButton kind="ghost" onClick={() => go('welcome')}>Cambiar correo</AuthButton>
         </div>
-        <p style={{ textAlign: 'center', fontSize: 12, color: css('--muted') }}>
-          El enlace expira en 15 minutos.{' '}
-          <InlineLink onClick={() => go('verifying')}>Probar enlace →</InlineLink>
+        <p style={{ textAlign:'center', fontSize:12, color:css('--muted') }}>
+          El enlace expira en 15 minutos.
         </p>
       </FormCard>
     </CenteredFrame>
   );
 };
-
 /* 3. Verifying */
-const Verifying = ({ vw, go }) => {
+const Verifying = ({ vw, go, isProto }) => {
   useEffect(() => {
-    const t = setTimeout(() => go('onboarding1'), 1600);
-    return () => clearTimeout(t);
+    if (isProto) {
+      const t = setTimeout(() => go('onboarding1'), 1600);
+      return () => clearTimeout(t);
+    }
+    // Production: listen for real Supabase SIGNED_IN event
+    const { data: { subscription } } = db.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session) {
+        subscription.unsubscribe();
+        clearTimeout(safetyTimer);
+        const { data: goals } = await db.from('goals').select('id').limit(1);
+        if (goals && goals.length > 0) {
+          window.location.href = 'index.html';
+        } else {
+          go('onboarding1');
+        }
+      }
+    });
+    const safetyTimer = setTimeout(() => { subscription.unsubscribe(); go('linkExpired'); }, 12000);
+    return () => { subscription.unsubscribe(); clearTimeout(safetyTimer); };
   }, []);
   return (
     <CenteredFrame vw={vw}>
       <FormCard vw={vw}>
-        <div style={{ textAlign: 'center', display: 'grid', gap: 16, justifyItems: 'center', padding: '12px 0' }}>
+        <div style={{ textAlign:'center', display:'grid', gap:16, justifyItems:'center', padding:'12px 0' }}>
           <Spinner />
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
-              Confirmando tu enlace…
+            <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em' }}>
+              Confirmando tu enlace...
             </h2>
-            <p style={{ marginTop: 6, fontSize: 13, color: css('--muted-2') }}>Solo un segundo.</p>
+            <p style={{ marginTop:6, fontSize:13, color:css('--muted-2') }}>Solo un segundo.</p>
           </div>
         </div>
       </FormCard>
     </CenteredFrame>
   );
 };
-
 /* ─── Onboarding purposes ─────────────────────────────────────── */
 const purposes = [
   { id: 'cuota',      title: 'Cuota inicial',       sub: 'Apartamento o casa',      amount: 240_000_000, years: 6  },
@@ -900,45 +927,55 @@ const Done = ({ vw, go, draft }) => (
 );
 
 /* 8. Returning login */
-const Returning = ({ vw, go }) => {
-  const [email, setEmail] = useState('');
+const Returning = ({ vw, go, email, setEmail, handleGoogleAuth, handleMagicLink }) => {
+  const [loading, setLoading] = useState(false);
+  const [error,   setError  ] = useState('');
   return (
     <CenteredFrame vw={vw}>
       <FormCard vw={vw}>
         <div>
           <Wordmark size={20} />
-          <h2 style={{ margin: '14px 0 6px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <h2 style={{ margin:'14px 0 6px', fontSize:22, fontWeight:700, letterSpacing:'-0.02em' }}>
             Bienvenido de vuelta
           </h2>
-          <p style={{ fontSize: 13, color: css('--muted-2'), lineHeight: 1.55 }}>
+          <p style={{ fontSize:13, color:css('--muted-2'), lineHeight:1.55 }}>
             Entra para revisar tus metas.
           </p>
         </div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <AuthButton kind="oauth" icon={<GoogleIcon />} onClick={() => go('verifying')}>
+        <div style={{ display:'grid', gap:10 }}>
+          <AuthButton kind="oauth" icon={<GoogleIcon />} disabled={loading}
+            onClick={async () => {
+              setLoading(true); setError('');
+              try { await handleGoogleAuth(); }
+              catch(e) { setError(e.message); setLoading(false); }
+            }}>
             Continuar con Google
-          </AuthButton>
-          <AuthButton kind="oauth" icon={<AppleIcon />} onClick={() => go('verifying')}>
-            Continuar con Apple
           </AuthButton>
         </div>
         <Divider>o</Divider>
-        <form onSubmit={(e) => { e.preventDefault(); if (email.includes('@')) go('linkSent'); }}
-              style={{ display: 'grid', gap: 12 }}>
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          if (!email.includes('@')) return;
+          setLoading(true); setError('');
+          try { await handleMagicLink(email); go('linkSent'); }
+          catch(e) { setError(e.message); setLoading(false); }
+        }} style={{ display:'grid', gap:12 }}>
           <Field label="Correo">
             <AuthInput value={email} onChange={setEmail} placeholder="tu@correo.com"
-                       ariaLabel="Correo electrónico" autoFocus />
+                       ariaLabel="Correo" autoFocus />
           </Field>
-          <AuthButton kind="primary" type="submit">Enviar enlace mágico →</AuthButton>
+          {error && <p style={{ fontSize:12, color:css('--danger') }}>{error}</p>}
+          <AuthButton kind="primary" type="submit" disabled={loading || !email.includes('@')}>
+            {loading ? 'Enviando...' : 'Enviar enlace magico'}
+          </AuthButton>
         </form>
-        <p style={{ fontSize: 12, color: css('--muted'), textAlign: 'center' }}>
-          ¿Sin cuenta? Solo escribe tu correo y la creamos.
+        <p style={{ fontSize:12, color:css('--muted'), textAlign:'center' }}>
+          Sin cuenta? Solo escribe tu correo y la creamos.
         </p>
       </FormCard>
     </CenteredFrame>
   );
 };
-
 /* 9. Link expired */
 const LinkExpired = ({ vw, go }) => (
   <CenteredFrame vw={vw}>
@@ -1010,31 +1047,93 @@ const SunIcon = () => (
 );
 
 function App() {
-  const [theme, setTheme] = useState('light');
-  const [vw, setVw] = useState('desktop');
-  const [screen, setScreen] = useState('welcome');
-  const [draft, setDraft] = useState({ purposeId: 'cuota', amount: 240_000_000, years: 6 });
+  const [theme,  setTheme ] = useState('light');
+  const [vw,     setVw    ] = useState('desktop');
+  const [screen, setScreen] = useState(null);   // null = checking auth
+  const [draft,  setDraft ] = useState({ purposeId: 'cuota', amount: 240_000_000, years: 6 });
+  const [email,  setEmail ] = useState('');
+
+  // Prototype mode when running on localhost or ?proto param present
+  const isProto = location.hostname === 'localhost'
+    || location.hostname === '127.0.0.1'
+    || new URLSearchParams(location.search).has('proto');
 
   useEffect(() => { document.body.dataset.theme = theme; }, [theme]);
 
-  const Screen = screenMap[screen];
-  const go = (next) => setScreen(next);
+  // On boot: detect magic-link hash or existing session
+  useEffect(() => {
+    async function init() {
+      if (location.hash.includes('access_token') || location.hash.includes('error_description')) {
+        setScreen('verifying');
+        return;
+      }
+      if (isProto) { setScreen('welcome'); return; }
+      try {
+        const { data: { session } } = await db.auth.getSession();
+        if (session) { window.location.href = 'index.html'; return; }
+      } catch(e) { console.warn('[auth] session check failed:', e.message); }
+      setScreen('welcome');
+    }
+    init();
+  }, []);
 
+  // ── Auth handlers ────────────────────────────────────────────────
+  const baseUrl = () => location.origin + location.pathname.replace(/auth\.html.*$/, '');
+
+  const handleGoogleAuth = async () => {
+    if (isProto) { setScreen('verifying'); return; }
+    const { error } = await db.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: baseUrl() + 'auth.html' },
+    });
+    if (error) throw error;
+  };
+
+  const handleMagicLink = async (addr) => {
+    if (isProto) return;
+    const { error } = await db.auth.signInWithOtp({
+      email: addr,
+      options: { emailRedirectTo: baseUrl() + 'auth.html' },
+    });
+    if (error) throw error;
+  };
+
+  const handleResend = (addr) => handleMagicLink(addr);
+
+  // ── Render ───────────────────────────────────────────────────────
+  if (screen === null) {
+    return (
+      <div style={{ minHeight:'100vh', display:'grid', placeItems:'center' }}>
+        <Spinner />
+      </div>
+    );
+  }
+
+  const go = (next) => setScreen(next);
+  const Screen = screenMap[screen] || Welcome;
+  const props  = {
+    vw: isProto ? vw : 'desktop', go, draft, setDraft, theme,
+    email, setEmail, handleGoogleAuth, handleMagicLink, handleResend, isProto,
+  };
+
+  if (!isProto) {
+    return <div style={{ minHeight:'100vh' }}><Screen key={screen} {...props} /></div>;
+  }
+
+  // Proto: stage chrome
   return (
     <div className="stage">
-      {/* ── Stage bar ── */}
       <div className="stage-bar">
         <div className="grp">
           <Wordmark size={13} />
-          <span style={{ width: 1, height: 16, background: css('--border'), margin: '0 6px' }} />
-          <span className="title">Auth · hi-fi</span>
+          <span style={{ width:1, height:16, background:css('--border'), margin:'0 6px' }} />
+          <span className="title">Auth - hi-fi</span>
         </div>
-        <div className="grp" style={{ gap: 8 }}>
+        <div className="grp" style={{ gap:8 }}>
           <select className="scrn-select" value={screen}
                   onChange={(e) => setScreen(e.target.value)} aria-label="Pantalla">
             {screens.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
-
           <div className="seg">
             {['mobile','tablet','desktop'].map((v) => (
               <button key={v} aria-pressed={vw === v} onClick={() => setVw(v)}>
@@ -1042,32 +1141,26 @@ function App() {
               </button>
             ))}
           </div>
-
           <button className="ico-btn" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
                   aria-label="Cambiar tema">
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
         </div>
       </div>
-
-      {/* ── Viewport ── */}
       <div className={`viewport ${vw}`}>
-        <Screen key={screen} vw={vw} go={go} draft={draft} setDraft={setDraft} theme={theme} />
+        <Screen key={screen} {...props} />
       </div>
-
-      {/* ── Footer label ── */}
-      <div style={{ fontSize: 12, color: css('--muted'), fontWeight: 500 }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{vw}</span>
-        {' · '}{screens.find(s => s.id === screen)?.label}
-        {' · '}
-        <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ fontSize:12, color:css('--muted'), fontWeight:500 }}>
+        <span style={{ fontFamily:"'JetBrains Mono',monospace" }}>{vw}</span>
+        {' - '}{screens.find(s => s.id === screen)?.label}
+        {' - '}
+        <span style={{ fontFamily:"'JetBrains Mono',monospace" }}>
           {vw === 'mobile' ? '390px' : vw === 'tablet' ? '768px' : '1280px'}
         </span>
       </div>
     </div>
   );
 }
-
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 </body>
