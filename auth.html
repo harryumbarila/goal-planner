@@ -134,6 +134,12 @@ body[data-theme="dark"] .viewport { box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
 .viewport.tablet  { max-width: 768px; }
 .viewport.desktop { max-width: 1280px; }
 
+/* ─── Auth screens — responsive (production mode) ────────────── */
+/* Ensures split layout collapses on real small screens regardless
+   of the vw prop timing */
+@media (max-width: 600px) {
+  #root > div { min-height: 100svh; }
+}
 /* ─── Slider thumb (cross-browser) ──────────────────────────── */
 input[type=range] { -webkit-appearance: none; appearance: none; outline: 0; }
 input[type=range]::-webkit-slider-thumb {
@@ -488,7 +494,7 @@ const FormCard = ({ children, vw }) => (
 
 const CenteredFrame = ({ vw, children }) => (
   <div style={{
-    minHeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    minHeight: vw === 'mobile' ? '100svh' : 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: vw === 'mobile' ? '24px 22px' : '40px 48px',
   }}>
     <div style={{ width: '100%', maxWidth: 460 }}>{children}</div>
@@ -498,7 +504,7 @@ const CenteredFrame = ({ vw, children }) => (
 const SplitLayout = ({ vw, narrative, form }) => {
   if (vw === 'desktop') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: 700, gap: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: '100svh', gap: 0 }}>
         <div style={{
           padding: '40px 48px',
           background: `linear-gradient(135deg, ${css('--surface-2')}, ${css('--surface-3')})`,
@@ -513,7 +519,7 @@ const SplitLayout = ({ vw, narrative, form }) => {
   }
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', minHeight: 700,
+      display: 'flex', flexDirection: 'column', minHeight: '100svh',
       padding: vw === 'tablet' ? '32px 48px' : '24px 22px 32px',
       gap: vw === 'mobile' ? 18 : 24,
       alignItems: 'center',
@@ -1056,6 +1062,15 @@ function App() {
   // Prototype mode: only when ?proto is explicitly in the URL
   const isProto = new URLSearchParams(location.search).has('proto');
 
+  // Detect real viewport width for production responsive layout
+  const getVwBreakpoint = () => window.innerWidth <= 500 ? 'mobile' : window.innerWidth <= 860 ? 'tablet' : 'desktop';
+  const [actualVw, setActualVw] = useState(getVwBreakpoint);
+  useEffect(() => {
+    const onResize = () => setActualVw(getVwBreakpoint());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   useEffect(() => { document.body.dataset.theme = theme; }, [theme]);
 
   // On boot: detect magic-link hash or existing session
@@ -1110,7 +1125,7 @@ function App() {
   const go = (next) => setScreen(next);
   const Screen = screenMap[screen] || Welcome;
   const props  = {
-    vw: isProto ? vw : 'desktop', go, draft, setDraft, theme,
+    vw: isProto ? vw : actualVw, go, draft, setDraft, theme,
     email, setEmail, handleGoogleAuth, handleMagicLink, handleResend, isProto,
   };
 
