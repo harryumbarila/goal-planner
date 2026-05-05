@@ -616,6 +616,11 @@ const Welcome = ({ vw, go }) => {
             <InlineLink onClick={() => {}}>Términos</InlineLink>{' '}
             y la <InlineLink onClick={() => {}}>Política de privacidad</InlineLink>.
           </p>
+          <div style={{ textAlign: 'center', paddingTop: 2 }}>
+            <InlineLink onClick={() => { window.location.href = 'index.html'; }}>
+              Ya tengo mi plan, ir al panel →
+            </InlineLink>
+          </div>
         </FormCard>
       }
     />
@@ -851,8 +856,26 @@ const Onboarding3 = ({ vw, go, draft, setDraft }) => {
   );
 };
 
+/* Purpose-id → index.html purpose key mapping */
+const AUTH_TO_INDEX_PURPOSE = {
+  cuota: 'downpayment', retiro: 'retirement', fondo: 'emergency',
+  vacaciones: 'vacation', educacion: 'education', otro: 'custom',
+};
+
+const buildPanelUrl = (draft) => {
+  const purpose = AUTH_TO_INDEX_PURPOSE[draft.purposeId] || 'custom';
+  const monthly  = Math.round(requiredMonthly(500_000, draft.amount, 0.095, draft.years));
+  const p = new URLSearchParams({
+    goal:    String(draft.amount),
+    years:   String(draft.years),
+    monthly: String(monthly),
+    purpose,
+  });
+  return 'index.html?' + p.toString();
+};
+
 /* 7. Done */
-const Done = ({ vw, go }) => (
+const Done = ({ vw, go, draft }) => (
   <CenteredFrame vw={vw}>
     <FormCard vw={vw}>
       <div style={{ display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center' }}>
@@ -868,7 +891,7 @@ const Done = ({ vw, go }) => (
           Te llevamos al panel para que ajustes los detalles y agregues más metas.
         </p>
       </div>
-      <AuthButton kind="primary" onClick={() => window.location.href = 'index.html'}>
+      <AuthButton kind="primary" onClick={() => { window.location.href = buildPanelUrl(draft); }}>
         Entrar al panel →
       </AuthButton>
       <AuthButton kind="ghost" onClick={() => go('welcome')}>Volver al inicio</AuthButton>

@@ -656,7 +656,33 @@ const PURPOSE_MAP = PURPOSE_OPTIONS.reduce((acc, option) => {
   return acc;
 }, {});
 
-const DEFAULT_ONBOARDING = { purpose: 'downpayment', years: 5, monthly: 1200000 };
+// Auth-flow purpose IDs → index.html PURPOSE_MAP keys
+const AUTH_PURPOSE_MAP = {
+  cuota: 'downpayment', retiro: 'retirement', fondo: 'emergency',
+  vacaciones: 'vacation', educacion: 'education', otro: 'custom',
+};
+
+// Purpose list for the multi-step onboarding (mirrors auth.html)
+const AUTH_PURPOSES = [
+  { id: 'cuota',      title: 'Cuota inicial',       sub: 'Apartamento o casa',  amount: 240_000_000, years: 6  },
+  { id: 'retiro',     title: 'Retiro',               sub: 'Largo plazo',         amount: 800_000_000, years: 25 },
+  { id: 'fondo',      title: 'Fondo de emergencia',  sub: '3–6 meses de gastos', amount: 30_000_000,  years: 2  },
+  { id: 'vacaciones', title: 'Vacaciones',            sub: 'Viaje o experiencia', amount: 12_000_000,  years: 1  },
+  { id: 'educacion',  title: 'Educación',             sub: 'Tuya o de los tuyos', amount: 80_000_000,  years: 5  },
+  { id: 'otro',       title: 'Otra meta',             sub: 'Tú la describes',     amount: 50_000_000,  years: 3  },
+];
+
+const onbReferenceCopy = (id, amount) => {
+  const m = amount / 1e6;
+  if (id === 'cuota')      return `$${Math.round(m)}M ≈ cuota inicial 30% para apartamento de $${Math.round(m * 3.33)}M en Bogotá.`;
+  if (id === 'retiro')     return `$${Math.round(m)}M cubre ~25 años de retiro con un retiro mensual de $${Math.round(m / 300).toLocaleString('es-CO')}K.`;
+  if (id === 'fondo')      return `$${Math.round(m)}M ≈ ${Math.round(m / 5)} meses de gastos para una persona en Bogotá.`;
+  if (id === 'vacaciones') return `$${Math.round(m)}M alcanza para un viaje de 2 semanas en Europa para dos.`;
+  if (id === 'educacion')  return `$${Math.round(m)}M cubre ~${Math.round(m / 16)} semestres de pregrado en universidad privada.`;
+  return `$${Math.round(m)}M es el objetivo que definiste — ajústalo cuando quieras.`;
+};
+
+const DEFAULT_ONBOARDING = { purposeId: 'cuota', amount: 240_000_000, years: 6 };
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const coerceNumber = (value, fallback) => {
@@ -702,6 +728,17 @@ const requiredRate = (pv, fv, years) => {
   if (pv >= fv) return 0;
   if (pv <= 0 || years <= 0) return Infinity;
   return Math.pow(fv / pv, 1 / years) - 1;
+};
+
+const requiredMonthly = (pv, fv, rate, years) => {
+  if (rate <= 0) { const need = fv - pv; return need > 0 ? need / (years * 12) : 0; }
+  let projected = pv;
+  for (let i = 0; i < years; i++) projected *= (1 + rate);
+  const gap = fv - projected;
+  if (gap <= 0) return 0;
+  let fvAnnuity = 0;
+  for (let i = 0; i < years; i++) fvAnnuity += Math.pow(1 + rate, i);
+  return Math.max(0, (gap / fvAnnuity) / 12);
 };
 
 const requiredMonthlyContrib = (pv, fv, annualRate, years) => {
@@ -781,19 +818,18 @@ const createGoal = (overrides = {}, index = 0) => sanitizeGoal({
 }, index);
 
 const createGoalFromOnboarding = (draft) => {
-  const preset = PURPOSE_MAP[draft.purpose] || PURPOSE_MAP.custom;
-  const years = clamp(Math.round(coerceNumber(draft.years, 5)), 1, MAX_YEARS);
-  const monthly = Math.max(0, coerceNumber(draft.monthly, 1200000));
-  const seededCurrent = preset.currentVal;
-  const projected = futureValue(seededCurrent, preset.expectedReturn / 100, years, monthly);
-  const softTarget = Math.max(preset.baseGoal, Math.round(projected * 0.88 / 1000000) * 1000000);
+  const purposeKey = AUTH_PURPOSE_MAP[draft.purposeId] || 'custom';
+  const preset = PURPOSE_MAP[purposeKey] || PURPOSE_MAP.custom;
+  const years = clamp(Math.round(coerceNumber(draft.years, 6)), 1, MAX_YEARS);
+  const amount = Math.max(preset.baseGoal, coerceNumber(draft.amount, preset.baseGoal));
+  const monthly = Math.max(0, Math.round(requiredMonthly(preset.currentVal, amount, preset.expectedReturn / 100, years)));
   return createGoal({
     title: preset.defaultTitle,
     goalPurpose: preset.value,
-    currentVal: seededCurrent,
+    currentVal: preset.currentVal,
     expectedReturn: preset.expectedReturn,
     monthlyAdd: monthly,
-    goalAmount: softTarget,
+    goalAmount: amount,
     goalYears: years,
   }, 0);
 };
@@ -1964,9 +2000,131 @@ const CombinedOverview = ({ goals }) => {
   );
 };
 
+// ─── Onboarding helpers ───────────────────────────────────────────────────
+const ONB_PRESETS = [10_000_000, 30_000_000, 50_000_000, 100_000_000, 240_000_000, 500_000_000];
+
+const StepDots = ({ total, current }) => (
+  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+    {Array.from({ length: total }).map((_, i) => (
+      <span key={i} style={{
+        display: 'inline-block',
+        width: i === current ? 22 : 6, height: 6, borderRadius: 999,
+        background: i <= current ? 'var(--accent)' : 'var(--surface-2)',
+        border: `1px solid ${i <= current ? 'var(--accent-border)' : 'var(--border)'}`,
+        transition: 'width 0.25s ease, background 0.25s ease',
+      }} />
+    ))}
+  </div>
+);
+
+const OnbStatRow = ({ label, value, accent, last }) => (
+  <div style={{
+    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12,
+    padding: '9px 0',
+    borderBottom: last ? 'none' : '1px dashed var(--border)',
+  }}>
+    <span style={{ fontSize: 13, color: 'var(--muted-2)' }}>{label}</span>
+    <span className="mono" style={{ fontWeight: 600, fontSize: 14, color: accent ? 'var(--accent)' : 'var(--text)' }}>
+      {value}
+    </span>
+  </div>
+);
+
 const OnboardingScreen = ({ draft, setDraft, onStart, theme, onToggleTheme }) => {
-  const selected = PURPOSE_MAP[draft.purpose] || PURPOSE_MAP.custom;
-  const previewGoal = createGoalFromOnboarding(draft);
+  const [step, setStep] = React.useState(0);
+
+  const Step1 = () => (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div>
+        <h2 className="onboarding-title" style={{ marginBottom: 6 }}>{'¿Qué quieres lograr?'}</h2>
+        <p className="onboarding-sub">{'Elige el propósito de tu primera meta. Puedes agregar más después.'}</p>
+      </div>
+      <div className="purpose-grid">
+        {AUTH_PURPOSES.map((p) => {
+          const active = draft.purposeId === p.id;
+          return (
+            <button key={p.id} className={'purpose-card' + (active ? ' active' : '')}
+              onClick={() => setDraft((prev) => ({ ...prev, purposeId: p.id, amount: p.amount, years: p.years }))}>
+              <div className="purpose-card-title">{p.title}</div>
+              <p className="purpose-card-copy">{p.sub}</p>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="button" onClick={() => setStep(1)}>{'Siguiente →'}</button>
+      </div>
+    </div>
+  );
+
+  const Step2 = () => (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div>
+        <h2 className="onboarding-title" style={{ marginBottom: 6 }}>{'¿Cuánto necesitas?'}</h2>
+        <p className="onboarding-sub">{'Aproximado está bien — puedes ajustarlo cuando quieras.'}</p>
+      </div>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>{'Monto objetivo'}</div>
+        <NumberInput currency value={draft.amount} min={0} step={1000000}
+          onChange={(e) => setDraft((prev) => ({ ...prev, amount: +e.target.value }))} />
+      </div>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>{'O elige un preset'}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {ONB_PRESETS.map((v) => (
+            <button key={v} className={'chip' + (draft.amount === v ? ' active' : '')}
+              onClick={() => setDraft((prev) => ({ ...prev, amount: v }))}>
+              {fmt(v)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Card padding={14} style={{ background: 'var(--surface-2)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>{'Referencia'}</div>
+        <p className="page-sub" style={{ lineHeight: 1.55 }}>{onbReferenceCopy(draft.purposeId, draft.amount)}</p>
+      </Card>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button className="ghost-button" onClick={() => setStep(0)}>{'← Atrás'}</button>
+        <button className="button" style={{ flex: 1 }} onClick={() => setStep(2)}>{'Siguiente →'}</button>
+      </div>
+    </div>
+  );
+
+  const Step3 = () => {
+    const preset = PURPOSE_MAP[AUTH_PURPOSE_MAP[draft.purposeId] || 'custom'] || PURPOSE_MAP.custom;
+    const monthly = Math.max(0, Math.round(requiredMonthly(preset.currentVal, draft.amount, preset.expectedReturn / 100, draft.years)));
+    return (
+      <div style={{ display: 'grid', gap: 18 }}>
+        <div>
+          <h2 className="onboarding-title" style={{ marginBottom: 6 }}>{'¿En cuánto tiempo?'}</h2>
+          <p className="onboarding-sub">{'El plazo afecta cuánto debes aportar al mes.'}</p>
+        </div>
+        <Card padding={18} style={{ background: 'var(--surface-2)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+            {`Plazo · ${draft.years} ${draft.years === 1 ? 'año' : 'años'}`}
+          </div>
+          <SliderInput value={draft.years} min={1} max={MAX_YEARS} step={1}
+            onChange={(e) => setDraft((prev) => ({ ...prev, years: +e.target.value }))} />
+        </Card>
+        <Card padding={18} style={{ background: 'linear-gradient(135deg,var(--accent-soft),transparent)', border: '1px solid var(--accent-border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 6 }}>{'Tu plan propuesto'}</div>
+          <div className="mono" style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--accent)', marginBottom: 10 }}>
+            {`${fmt(draft.amount)} en ${draft.years} ${draft.years === 1 ? 'año' : 'años'}`}
+          </div>
+          <OnbStatRow label="Aporte mensual" value={fmt(monthly)} accent />
+          <OnbStatRow label="Rendimiento estimado" value={pct(preset.expectedReturn / 100)} />
+          <OnbStatRow label="Capital inicial" value={fmt(preset.currentVal)} last />
+        </Card>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="ghost-button" onClick={() => setStep(1)}>{'← Atrás'}</button>
+          <button className="button" style={{ flex: 1 }} onClick={onStart}>{'Crear mi meta ✦'}</button>
+        </div>
+      </div>
+    );
+  };
+
+  const steps = [<Step1 />, <Step2 />, <Step3 />];
+
   return (
     <div className="container">
       <div className="topbar" style={{ marginBottom: 14 }}>
@@ -1979,68 +2137,13 @@ const OnboardingScreen = ({ draft, setDraft, onStart, theme, onToggleTheme }) =>
         </div>
       </div>
       <Card className="onboarding-card" padding={28}>
-        <h2 className="onboarding-title">{'Armemos tu plan en 30 segundos'}</h2>
-        <p className="onboarding-sub">
-          {'Responde tres preguntas, te propongo un punto de partida y luego refinas todo en la vista avanzada.'}
-        </p>
-
-        <div style={{ marginBottom: 22 }}>
-          <SectionTitle>{'¿Para qué quieres ahorrar?'}</SectionTitle>
-          <div className="purpose-grid">
-            {['downpayment', 'retirement', 'vacation', 'custom'].map((purpose) => {
-              const option = PURPOSE_MAP[purpose];
-              return (
-                <button key={purpose} className={'purpose-card' + (draft.purpose === purpose ? ' active' : '')} onClick={() => setDraft((prev) => ({ ...prev, purpose }))}>
-                  <div className="purpose-card-title">{option.label}</div>
-                  <p className="purpose-card-copy">{option.description}</p>
-                </button>
-              );
-            })}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {`Paso ${step + 1} de 3`}
           </div>
+          <StepDots total={3} current={step} />
         </div>
-
-        <div className="setup-grid" style={{ marginBottom: 8 }}>
-          <Card padding={18} style={{ background: 'var(--surface-2)' }}>
-            <SectionTitle>{'\u00bfPara cu\u00e1ndo?'}</SectionTitle>
-            <div className="mono" style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{`${draft.years} ${draft.years === 1 ? 'año' : 'años'}`}</div>
-            <div className="page-sub" style={{ marginBottom: 10 }}>{`Meta proyectada al ${CURRENT_YEAR + draft.years}`}</div>
-            <SliderInput value={draft.years} min={1} max={MAX_YEARS} step={1} onChange={(e) => setDraft((prev) => ({ ...prev, years: +e.target.value }))} />
-          </Card>
-          <Card padding={18} style={{ background: 'var(--surface-2)' }}>
-            <SectionTitle>{'¿Cuánto puedes aportar por mes?'}</SectionTitle>
-            <div className="mono" style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>{fmt(draft.monthly)}</div>
-            <div className="page-sub" style={{ marginBottom: 10 }}>{'Puedes afinarlo después, meta por meta'}</div>
-            <SliderInput value={draft.monthly} min={0} max={16000000} step={100000} onChange={(e) => setDraft((prev) => ({ ...prev, monthly: +e.target.value }))} />
-          </Card>
-        </div>
-
-        <div className="hero-grid" style={{ marginTop: 22 }}>
-          <Card padding={22} style={{ background: 'linear-gradient(135deg,var(--accent-soft),transparent)' }}>
-            <SectionTitle>{'Preview del plan'}</SectionTitle>
-            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>{previewGoal.title}</div>
-            <p className="page-sub" style={{ marginBottom: 18 }}>
-              {`Te dejo una meta inicial de ${fmt(previewGoal.goalAmount)} a ${previewGoal.goalYears} años con ${fmt(previewGoal.monthlyAdd)}/mes.`}
-            </p>
-            <div className="hero-points">
-              <div className="hero-point">
-                <div className="hero-point-title">{'Retorno sugerido'}</div>
-                <div className="hero-point-value">{pct(previewGoal.expectedReturn / 100)}</div>
-              </div>
-              <div className="hero-point">
-                <div className="hero-point-title">{'Capital inicial'}</div>
-                <div className="hero-point-value">{fmt(previewGoal.currentVal)}</div>
-              </div>
-            </div>
-          </Card>
-          <Card className="hero-callout" padding={22}>
-            <strong>{selected.label}</strong>
-            <div className="page-sub">{selected.description}</div>
-            <div className="copy-pill">{'Después podrás agregar más metas, compartir tu plan y cambiar la apariencia cuando quieras.'}</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
-              <button className="button" onClick={onStart}>{'Crear mi plan'}</button>
-            </div>
-          </Card>
-        </div>
+        {steps[step]}
       </Card>
     </div>
   );
