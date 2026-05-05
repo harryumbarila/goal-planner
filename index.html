@@ -692,7 +692,7 @@ const coerceNumber = (value, fallback) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 const roundMoney = (value) => Math.max(0, Math.round(value));
-const generateId = () => 'goal-' + Math.random().toString(36).slice(2, 9);
+const generateId = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); });
 
 const fmt = (n) => {
   if (!Number.isFinite(n)) return '--';
@@ -2286,7 +2286,16 @@ function App() {
   };
 
 
-  const copyShareLink = async () => {
+  // Mark onboarding complete in Supabase (idempotent, runs whenever user + flag are ready)
+  React.useEffect(() => {
+    if (!user || !appState.onboardingComplete || typeof db === 'undefined') return;
+    db.from('profiles')
+      .update({ onboarding_complete: true })
+      .eq('user_id', user.id)
+      .then(({ error }) => { if (error) console.warn('[supabase] mark onboarding failed:', error.message); });
+  }, [user, appState.onboardingComplete]);
+
+    const copyShareLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
       setShareStatus('Link copiado');
