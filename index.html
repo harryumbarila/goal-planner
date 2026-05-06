@@ -1312,6 +1312,10 @@ const MetricRow = ({ goal, finalVal }) => {
 };
 
 const ScenarioModal = ({ scenario, goal, currentProjection, onApply, onClose }) => {
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
   const reaches = scenario.val >= goal.goalAmount;
   const improvement = scenario.val - currentProjection;
   const pctOfGoal = Math.round((scenario.val / goal.goalAmount) * 100);
@@ -1503,13 +1507,13 @@ const InflationAdjuster = ({ goal, finalVal }) => {
         {`Una meta de ${fmt(goal.goalAmount)} en ${years} ${years === 1 ? 'año' : 'años'} no es lo mismo que ${fmt(goal.goalAmount)} hoy. La inflación erosiona el poder de compra en silencio.`}
       </p>
 
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <label style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{'Inflación anual estimada'}</label>
-          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>{`${inflation}%`}</span>
+      <div style={{ background:'var(--accent-soft)', border:'1px solid var(--accent-border)', borderRadius:14, padding:'14px 18px', marginBottom:20 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+          <label style={{ fontSize:11, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:600 }}>{'Inflacion anual estimada'}</label>
+          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:20, fontWeight:700, color:'var(--accent)', background:'var(--surface)', padding:'3px 12px', borderRadius:8, border:'1px solid var(--accent-border)', lineHeight:1.4 }}>{`${inflation}%`}</span>
         </div>
         <SliderInput value={inflation} min={1} max={20} step={1} onChange={(e) => setInflation(+e.target.value)} />
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{'IPC Colombia histórico ~5% · Pico 2022: 13%'}</div>
+        <div style={{ fontSize:11, color:'var(--muted)', marginTop:8 }}>{'IPC Colombia historico ~5% · Pico 2022: 13%'}</div>
       </div>
 
       <div className="setup-grid" style={{ marginBottom: 14 }}>
@@ -1916,7 +1920,7 @@ const YearTable = ({ goal }) => {
   });
   return (
     <Card>
-      <SectionTitle>{'Tabla ano por ano'}</SectionTitle>
+      <SectionTitle>{'Tabla año por año'}</SectionTitle>
       <div className="table-wrap">
         <table>
           <thead>
@@ -2201,7 +2205,13 @@ function App() {
   }, []);
 
 
+  // Lock body scroll when any modal is open
   React.useEffect(() => {
+    document.body.style.overflow = showWhatsNew ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [showWhatsNew]);
+
+    React.useEffect(() => {
     document.body.setAttribute('data-theme', appState.theme);
   }, [appState.theme]);
 
