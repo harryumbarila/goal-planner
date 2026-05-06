@@ -1508,11 +1508,26 @@ const InflationAdjuster = ({ goal, finalVal }) => {
       </p>
 
       <div style={{ background:'var(--accent-soft)', border:'1px solid var(--accent-border)', borderRadius:14, padding:'14px 18px', marginBottom:20 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-          <label style={{ fontSize:11, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:600 }}>{'Inflacion anual estimada'}</label>
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:20, fontWeight:700, color:'var(--accent)', background:'var(--surface)', padding:'3px 12px', borderRadius:8, border:'1px solid var(--accent-border)', lineHeight:1.4 }}>{`${inflation}%`}</span>
+        <label style={{ fontSize:11, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:600, display:'block', marginBottom:20 }}>{'Inflacion anual estimada'}</label>
+        <div style={{ position:'relative', paddingTop:30 }}>
+          {/* Floating thumb bubble */}
+          <div style={{
+            position:'absolute', top:0,
+            left:`calc(${((inflation-1)/19)*100}% + ${(7.5 - ((inflation-1)/19)*100 * 0.15).toFixed(1)}px)`,
+            transform:'translateX(-50%)',
+            background:'var(--accent)', color:'#fff',
+            fontSize:13, fontWeight:700, fontFamily:"'JetBrains Mono',monospace",
+            padding:'3px 10px', borderRadius:8, whiteSpace:'nowrap',
+            pointerEvents:'none',
+            boxShadow:'0 2px 8px rgba(37,99,235,0.35)',
+            transition:'left 0.08s',
+          }}>{`${inflation}%`}</div>
+          <input
+            type="range" min={1} max={20} step={1} value={inflation}
+            onChange={(e) => setInflation(+e.target.value)}
+            style={{ background:`linear-gradient(to right,var(--accent) ${((inflation-1)/19)*100}%,rgba(128,138,157,0.22) ${((inflation-1)/19)*100}%)` }}
+          />
         </div>
-        <SliderInput value={inflation} min={1} max={20} step={1} onChange={(e) => setInflation(+e.target.value)} />
         <div style={{ fontSize:11, color:'var(--muted)', marginTop:8 }}>{'IPC Colombia historico ~5% · Pico 2022: 13%'}</div>
       </div>
 
