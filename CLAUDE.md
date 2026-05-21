@@ -1,6 +1,6 @@
 # Goal Planner — Claude Context
 
-Personal finance goal planner for tracking investment progress in Colombian Pesos (COP). Shared privately with close friends, deployed on Netlify.
+Personal finance goal planner for tracking investment progress in Colombian Pesos (COP). Shared privately with close friends, deployed on Vercel.
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
@@ -14,16 +14,17 @@ shell commands, and other important information, read the current plan
 - **Audience**: personal use + close friends (not a public product)
 - **Locale**: Spanish (Colombia), `es-CO`
 - **Currency**: COP only (uses `MM` for miles de millones, never "B" — "billón" in Spanish = 1 trillion)
-- **Deployment**: Netlify (static hosting — drop `index.html`, `auth.html`, `supabase-config.js` and it runs)
+- **Deployment**: Vercel static hosting from the repository root
 
 ## Architecture
 
-**Two-file React app + shared config.** Everything lives in three static files:
+**Three-file React app + shared config.** Everything lives in four static files:
 
 | File | Role |
 |------|------|
 | `auth.html` | Sign-in / onboarding (magic link, Google OAuth, 3-step goal setup) |
 | `index.html` | Main planner app (requires active Supabase session) |
+| `tracking.html` | Monthly contribution tracking and archived goals |
 | `supabase-config.js` | Shared Supabase client (`db`) — loaded by both HTML files |
 
 - React 18 + ReactDOM + Babel Standalone + supabase-js 2 (all via CDN, no build step)
