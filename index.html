@@ -112,7 +112,6 @@ input[type=range]::-moz-range-thumb{
   margin:0 auto;
   padding:28px 24px 36px;
   position:relative;
-  z-index:1;
 }
 .topbar{
   display:flex;
@@ -573,6 +572,13 @@ th:first-child,td:first-child{text-align:left}
   .onboarding-card{padding:22px 18px}
   .onboarding-title{font-size:28px}
 }
+/* ─── Sidebar app shell ──────────────────────────────── */
+#root{display:flex;min-height:100svh}
+.sidebar{transition:width 0.2s ease}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+@media(max-width:767px){.container{padding-bottom:80px}}
 </style>
 </head>
 <body data-theme="light">
@@ -584,15 +590,14 @@ const MAX_YEARS = 30;
 const CURRENT_YEAR = new Date().getFullYear();
 
 const WHATS_NEW = {
-  version: 'Nuevo',
+  version: '✦ v1.5 — Seguimiento',
   items: [
-    { title: 'Cifras en pesos colombianos', desc: 'Todas las metas, aportes y proyecciones ahora en COP.' },
-    { title: 'Banda de volatilidad ±1σ', desc: 'La proyección muestra un rango de incertidumbre según el tipo de activo.' },
-    { title: 'El costo de esperar', desc: 'Simula cuánto pierdes si postergas tu meta 1, 2, 3 o 5 años.' },
-    { title: 'Inflación ajustada', desc: 'Ve cuánto valen tus pesos futuros en poder de compra de hoy.' },
-    { title: 'Capital vs rendimientos', desc: 'Gráfico que separa lo que aportaste tú vs lo que generó el dinero solo.' },
-    { title: 'Referencias históricas', desc: 'Benchmarks reales: CDT, TES, COLCAP, S&P 500 e inflación COP.' },
-    { title: 'Confirmación de escenarios', desc: 'Al explorar escenarios rápidos, ahora ves qué cambia, por qué y el impacto antes de aplicarlo.' },
+    { title: 'Recordatorio mensual', desc: 'Al entrar al seguimiento te preguntamos si ya aportaste. Un clic y queda registrado.' },
+    { title: 'Real vs. plan en tiempo real', desc: 'Ve exactamente cuánto llevas acumulado frente a lo que el plan dice que deberías tener hoy, con la diferencia en pesos.' },
+    { title: 'Historial mes a mes', desc: 'Cada mes queda con su estado: Saldado, Parcial, Omitido o Pendiente. Siempre sabes qué pasó.' },
+    { title: 'Registrar cualquier monto', desc: 'Aportaste más, menos o nada este mes — lo registras con un campo libre, chips rápidos (50% · 100% · 150%) y una nota opcional.' },
+    { title: 'Re-planear cuando vas atrás', desc: 'Si el saldo real cae debajo del esperado, el app te ofrece cuatro opciones: subir el aporte, extender el plazo, bajar la meta, o solo ver sin cambiar nada.' },
+    { title: 'Indicador de salud por meta', desc: 'Cada meta muestra En camino, Atrás un poco o Hay que ajustar según qué tan cerca estás del plan proyectado.' },
   ],
 };
 
@@ -940,6 +945,29 @@ const statusFromProjection = (finalVal, goal) => {
   return 'red';
 };
 
+// Supabase: archive / unarchive / count helpers
+const archiveGoalRow = async (goalId) => {
+  const { error } = await db.from('goals').update({ archived_at: new Date().toISOString() }).eq('id', goalId);
+  if (error) throw error;
+};
+const unarchiveGoalRow = async (goalId) => {
+  const { error } = await db.from('goals').update({ archived_at: null }).eq('id', goalId);
+  if (error) throw error;
+};
+const loadArchivedGoalRows = async (userId) => {
+  const { data, error } = await db.from('goals')
+    .select('id,title,goal_purpose,current_val,monthly_add,goal_amount,expected_return,goal_years,archived_at')
+    .eq('user_id', userId).not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+const countGoalContributions = async (goalId) => {
+  const { count, error } = await db.from('contributions').select('*', { count:'exact', head:true }).eq('goal_id', goalId);
+  if (error) return 0;
+  return count || 0;
+};
+
 const Icon = ({ children, size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display:'block', flexShrink:0 }}>
     {children}
@@ -951,8 +979,10 @@ const MoonIcon  = () => <Icon><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 
 const SunIcon   = () => <Icon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></Icon>;
 const RefreshIcon = () => <Icon><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Icon>;
 const LogoutIcon = () => <Icon viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></Icon>;
-const PlusIcon  = () => <Icon><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const PlusIcon     = () => <Icon><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></Icon>;
+const TrackingIcon = () => <Icon><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></Icon>;
 const XIcon     = () => <Icon size={14}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const ArchiveIcon = () => <Icon size={14}><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/><line x1="10" y1="13" x2="14" y2="13"/></Icon>;
 
 const SectionTitle = ({ children }) => <h2 className="section-title">{children}</h2>;
 
@@ -1966,7 +1996,7 @@ const YearTable = ({ goal }) => {
   );
 };
 
-const GoalManager = ({ goals, activeGoalId, onSelect, onAddGoal, onRemoveGoal }) => (
+const GoalManager = ({ goals, activeGoalId, onSelect, onAddGoal, onArchiveGoal }) => (
   <Card>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
       <SectionTitle>{'Múltiples metas'}</SectionTitle>
@@ -1996,7 +2026,7 @@ const GoalManager = ({ goals, activeGoalId, onSelect, onAddGoal, onRemoveGoal })
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               <span className={'status-badge ' + toneClass}>{state === 'green' ? 'OK' : state === 'amber' ? 'Cerca' : 'Gap'}</span>
               {goals.length > 1 ? (
-                <button className="icon-btn" title="Quitar meta" onClick={(e) => { e.stopPropagation(); onRemoveGoal(goal.id); }}><XIcon /></button>
+                <button className="icon-btn" title="Archivar meta" onClick={(e) => { e.stopPropagation(); onArchiveGoal(goal); }}><ArchiveIcon /></button>
               ) : null}
             </div>
           </div>
@@ -2052,7 +2082,7 @@ const OnbStatRow = ({ label, value, accent, last }) => (
   </div>
 );
 
-const OnboardingScreen = ({ draft, setDraft, onStart, theme, onToggleTheme }) => {
+const OnboardingScreen = ({ draft, setDraft, onStart }) => {
   const [step, setStep] = React.useState(0);
 
   const Step1 = () => (
@@ -2148,28 +2178,412 @@ const OnboardingScreen = ({ draft, setDraft, onStart, theme, onToggleTheme }) =>
   const steps = [<Step1 />, <Step2 />, <Step3 />];
 
   return (
-    <div className="container">
-      <div className="topbar" style={{ marginBottom: 14 }}>
-        <div>
-          <h1 className="page-title"><span className="brand-mark">{'✦'}</span><span style={{ color:'var(--accent)' }}>{'Goal'}</span>{' planner'}</h1>
-          <p className="page-sub brand-tagline">{'Planea hoy. Llega mañana.'}</p>
+    <Card className="onboarding-card" padding={28}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+          {`Paso ${step + 1} de 3`}
         </div>
-        <div className="toolbar">
-          <button className="ghost-button" onClick={onToggleTheme}>{theme === 'dark' ? <SunIcon /> : <MoonIcon />}<span className="theme-toggle-text">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span></button>
-        </div>
+        <StepDots total={3} current={step} />
       </div>
-      <Card className="onboarding-card" padding={28}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
-            {`Paso ${step + 1} de 3`}
-          </div>
-          <StepDots total={3} current={step} />
-        </div>
-        {steps[step]}
-      </Card>
-    </div>
+      {steps[step]}
+    </Card>
   );
 };
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR APP SHELL
+═══════════════════════════════════════════════════ */
+const userInitials = (user) => {
+  const name = user?.user_metadata?.full_name || user?.email || '';
+  if (!name) return '?';
+  if (name.includes('@')) return name[0].toUpperCase();
+  return name.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+};
+
+function useBreakpoint() {
+  const get = () => { const w=window.innerWidth; return w<768?'mobile':w<1100?'tablet':'desktop'; };
+  const [bp, setBp] = React.useState(get);
+  React.useEffect(() => {
+    const fn = () => setBp(get());
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return bp;
+}
+
+function SidebarItem({ icon, label, active, muted, collapsed, badge, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const bg = active ? 'var(--text)' : hover ? 'var(--surface-2)' : 'transparent';
+  const fg = active ? 'var(--surface)' : muted ? 'var(--muted)' : 'var(--text)';
+  return (
+    <button onClick={onClick} onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      title={collapsed ? label : undefined}
+      style={{ display:'flex', alignItems:'center', gap:12, padding:collapsed?'9px 0':'9px 12px',
+        justifyContent:collapsed?'center':'flex-start', background:bg, color:fg,
+        border:'none', borderRadius:10, cursor:'pointer', textAlign:'left',
+        fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:active?600:500,
+        width:'100%', transition:'background 0.15s ease, color 0.15s ease', position:'relative' }}>
+      <span style={{ fontSize:15, width:18, display:'inline-grid', placeItems:'center', flexShrink:0 }}>{icon}</span>
+      {!collapsed && <span style={{ flex:1, whiteSpace:'nowrap' }}>{label}</span>}
+      {!collapsed && badge && (
+        <span style={{ background:'var(--accent-soft)', color:'var(--accent)', fontSize:10, fontWeight:700,
+          padding:'1px 7px', borderRadius:999, border:'1px solid var(--accent-border)' }}>{badge}</span>
+      )}
+      {collapsed && badge && (
+        <span style={{ position:'absolute', top:4, right:6, width:7, height:7, borderRadius:999, background:'var(--accent)' }} />
+      )}
+    </button>
+  );
+}
+
+function SidebarSubItem({ label, tone, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const toneColor = tone==='green'?'var(--success)':tone==='amber'?'var(--warning)':tone==='red'?'var(--danger)':'var(--muted)';
+  return (
+    <button onClick={onClick}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      style={{ display:'flex', alignItems:'center', gap:8,
+        padding:'6px 12px 6px 30px',
+        background:active?'var(--accent-soft)':hover?'var(--surface-2)':'transparent',
+        color:active?'var(--accent)':'var(--text)',
+        border:'none', borderRadius:8, cursor:'pointer', textAlign:'left',
+        fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:active?600:500,
+        width:'100%', transition:'background 0.15s ease, color 0.15s ease' }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:toneColor, flexShrink:0 }} />
+      <span style={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</span>
+    </button>
+  );
+}
+
+function SidebarGroup({ title, collapsed, children }) {
+  return (
+    <div style={{ marginTop:14 }}>
+      {!collapsed && <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase',
+        color:'var(--muted)', padding:'0 12px 6px' }}>{title}</div>}
+      {collapsed && <div style={{ height:1, background:'var(--border)', margin:'8px' }} />}
+      <div style={{ display:'grid', gap:2 }}>{children}</div>
+    </div>
+  );
+}
+
+function PlannerSidebar({ collapsed, onToggleCollapse, theme, onToggleTheme, user, onWhatsNew, onShare, shareStatus, onRestart, onSignOut, hasGoals, canAddMore, onAddGoal, goals, activeGoalId, onSelectGoal }) {
+  const initials = userInitials(user);
+  const email = user?.email || '';
+  const displayName = user?.user_metadata?.full_name?.split(' ')[0] || email.split('@')[0] || 'Usuario';
+  return (
+    <aside className="sidebar" style={{ width:collapsed?64:232, flexShrink:0,
+      background:'var(--surface)', borderRight:'1px solid var(--border)',
+      display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 }}>
+      <div style={{ padding:collapsed?'16px 8px':'16px 14px 12px',
+        display:'flex', alignItems:'center', justifyContent:collapsed?'center':'space-between' }}>
+        {!collapsed && (
+          <a href="index.html" style={{ display:'flex', alignItems:'baseline', gap:6, textDecoration:'none' }}>
+            <span style={{ color:'var(--accent)', fontSize:18 }}>✦</span>
+            <span style={{ fontWeight:700, fontSize:15, letterSpacing:'-0.03em' }}>
+              <span style={{ color:'var(--accent)' }}>Goal</span>
+              <span style={{ color:'var(--text)' }}> planner</span>
+            </span>
+          </a>
+        )}
+        {collapsed && <a href="index.html" style={{ textDecoration:'none', color:'var(--accent)', fontSize:20 }}>✦</a>}
+        {!collapsed && (
+          <button onClick={onToggleCollapse} aria-label="Colapsar sidebar" style={{
+            background:'transparent', border:'1px solid var(--border)', color:'var(--muted-2)',
+            width:24, height:24, borderRadius:7, cursor:'pointer', fontSize:11, lineHeight:1, padding:0 }}>‹</button>
+        )}
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:collapsed?'0 8px':'0 12px' }}>
+        <SidebarGroup title="Vistas" collapsed={collapsed}>
+          <SidebarItem icon="◐" label="Planner" active collapsed={collapsed} onClick={()=>{}} />
+          {!collapsed && goals && goals.length > 1 && goals.map(g => (
+            <SidebarSubItem key={g.id} label={g.title} tone={g.tone}
+              active={g.id===activeGoalId} onClick={()=>onSelectGoal(g.id)} />
+          ))}
+          <SidebarItem icon="⌁" label="Seguimiento" collapsed={collapsed} onClick={()=>window.location.href='tracking.html'} />
+          <SidebarItem icon="≡" label="Histórico" collapsed={collapsed} muted onClick={()=>{}} />
+          <SidebarItem icon="⊡" label="Archivadas" collapsed={collapsed} onClick={()=>window.location.href='tracking.html?view=arch'} />
+        </SidebarGroup>
+        {hasGoals && canAddMore && (
+          <SidebarGroup title="Acciones" collapsed={collapsed}>
+            <SidebarItem icon="+" label="Agregar meta" collapsed={collapsed} onClick={onAddGoal} />
+          </SidebarGroup>
+        )}
+        <SidebarGroup title="Cuenta" collapsed={collapsed}>
+          <SidebarItem icon="✦" label="Novedades" collapsed={collapsed} badge="Nuevo" onClick={onWhatsNew} />
+          <SidebarItem icon="⤴" label={shareStatus||'Compartir'} collapsed={collapsed} onClick={onShare} />
+          {!hasGoals && <SidebarItem icon="↻" label="Rehacer onboarding" collapsed={collapsed} muted onClick={onRestart} />}
+          <SidebarItem icon="→" label="Salir" collapsed={collapsed} muted onClick={onSignOut} />
+        </SidebarGroup>
+        {collapsed && (
+          <div style={{ paddingTop:16 }}>
+            <button onClick={onToggleCollapse} aria-label="Expandir sidebar" style={{
+              width:'100%', background:'transparent', border:'1px solid var(--border)',
+              color:'var(--muted-2)', height:28, borderRadius:7, cursor:'pointer', fontSize:13, padding:0 }}>›</button>
+          </div>
+        )}
+      </div>
+      <div style={{ padding:collapsed?10:12, borderTop:'1px solid var(--border)',
+        display:'flex', alignItems:'center', gap:8, justifyContent:collapsed?'center':'space-between' }}>
+        {!collapsed && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+            <div style={{ width:30, height:30, borderRadius:999, background:'var(--accent-soft)',
+              color:'var(--accent)', display:'grid', placeItems:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>{initials}</div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:'var(--text)', lineHeight:1.2 }}>{displayName}</div>
+              <div style={{ fontSize:10, color:'var(--muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:130 }}>{email}</div>
+            </div>
+          </div>
+        )}
+        {collapsed && (
+          <div style={{ width:30, height:30, borderRadius:999, background:'var(--accent-soft)',
+            color:'var(--accent)', display:'grid', placeItems:'center', fontSize:11, fontWeight:700 }}>{initials}</div>
+        )}
+        {!collapsed && (
+          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+            background:'transparent', border:'1px solid var(--border)',
+            color:'var(--muted-2)', width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:13, padding:0, flexShrink:0 }}>
+            {theme==='dark'?'☀':'☾'}
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function ContextHeader({ title, subtitle, theme, onToggleTheme, collapsed, compact }) {
+  return (
+    <header style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:compact?'12px 18px':'14px 28px', borderBottom:'1px solid var(--border)',
+      background:'var(--bg)', position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)', gap:12 }}>
+      <div style={{ minWidth:0 }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--muted)' }}>{subtitle}</div>
+        <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+        {collapsed && (
+          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+            background:'transparent', border:'1px solid var(--border)',
+            color:'var(--muted-2)', width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0 }}>
+            {theme==='dark'?'☀':'☾'}
+          </button>
+        )}
+        <a href="tracking.html" style={{
+          background:'transparent', border:'1px solid var(--border)', color:'var(--muted-2)',
+          height:34, borderRadius:10, fontSize:13, padding:compact?0:'0 12px', width:compact?34:'auto',
+          display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+          fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none' }}>
+          <span>⌁</span>{!compact && <span>Seguimiento</span>}
+        </a>
+      </div>
+    </header>
+  );
+}
+
+function MobileTopBar({ title, subtitle }) {
+  return (
+    <header style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px',
+      borderBottom:'1px solid var(--border)', background:'var(--bg)',
+      position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)' }}>
+      <a href="index.html" style={{ color:'var(--accent)', fontSize:18, flexShrink:0, textDecoration:'none' }}>✦</a>
+      <div style={{ minWidth:0 }}>
+        <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--muted)', lineHeight:1 }}>{subtitle}</div>
+        <h1 style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+      </div>
+    </header>
+  );
+}
+
+function PlannerBottomNav({ onMore, onWhatsNew }) {
+  const items = [
+    { id:'plan', icon:'◐', label:'Planner',   href:'index.html',    active:true },
+    { id:'seg',  icon:'⌁', label:'Seguim.',   href:'tracking.html' },
+    { id:'news', icon:'✦', label:'Novedades' },
+    { id:'more', icon:'⋯', label:'Más' },
+  ];
+  const handlers = { news: onWhatsNew, more: onMore };
+  return (
+    <nav style={{ position:'fixed', bottom:0, left:0, right:0, zIndex:50,
+      display:'flex', justifyContent:'space-around', alignItems:'stretch',
+      background:'var(--surface)', borderTop:'1px solid var(--border)',
+      paddingBottom:'env(safe-area-inset-bottom, 0px)', boxShadow:'0 -2px 12px rgba(0,0,0,0.05)' }}>
+      {items.map(item => {
+        const color = item.active ? 'var(--accent)' : 'var(--muted)';
+        const base = { flex:1, background:'transparent', border:'none', padding:'8px 4px 10px',
+          display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+          color, fontFamily:"'DM Sans',sans-serif", cursor:'pointer' };
+        return item.href ? (
+          <a key={item.id} href={item.href} style={{ ...base, textDecoration:'none' }}>
+            <span style={{ fontSize:18, lineHeight:1 }}>{item.icon}</span>
+            <span style={{ fontSize:10, fontWeight:item.active?700:500 }}>{item.label}</span>
+          </a>
+        ) : (
+          <button key={item.id} onClick={handlers[item.id]} style={base}>
+            <span style={{ fontSize:18, lineHeight:1 }}>{item.icon}</span>
+            <span style={{ fontSize:10, fontWeight:500 }}>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function PlannerMoreSheet({ open, onClose, theme, onToggleTheme, user, onWhatsNew, onShare, onRestart, onSignOut, hasGoals, canAddMore, onAddGoal }) {
+  if (!open) return null;
+  const initials = userInitials(user);
+  const email = user?.email || '';
+  const displayName = user?.user_metadata?.full_name || email;
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+  const items = [
+    ...(hasGoals && canAddMore ? [{ icon:'+', label:'Agregar meta', onClick:()=>{ onAddGoal(); onClose(); } }] : []),
+    { icon:'⤴', label:'Compartir', onClick:()=>{ onShare(); onClose(); } },
+    ...(!hasGoals ? [{ icon:'↻', label:'Rehacer onboarding', muted:true, onClick:()=>{ onRestart(); onClose(); } }] : []),
+    { icon:'→', label:'Salir', muted:true, onClick:onSignOut },
+  ];
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:60, display:'flex', alignItems:'flex-end' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:'100%', background:'var(--surface)',
+        borderRadius:'20px 20px 0 0', padding:'12px 16px 32px', boxShadow:'0 -8px 32px rgba(0,0,0,0.18)' }}>
+        <div style={{ width:36, height:4, borderRadius:999, background:'var(--border)', margin:'0 auto 20px' }} />
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'0 4px 16px',
+          borderBottom:'1px solid var(--border)', marginBottom:12 }}>
+          <div style={{ width:36, height:36, borderRadius:999, background:'var(--accent-soft)', color:'var(--accent)',
+            display:'grid', placeItems:'center', fontSize:13, fontWeight:700, flexShrink:0 }}>{initials}</div>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{displayName}</div>
+            <div style={{ fontSize:11, color:'var(--muted)' }}>{email}</div>
+          </div>
+          <button onClick={onToggleTheme} style={{ marginLeft:'auto', background:'transparent',
+            border:'1px solid var(--border)', color:'var(--muted-2)', width:34, height:34,
+            borderRadius:10, cursor:'pointer', fontSize:14, padding:0, flexShrink:0 }}>
+            {theme==='dark'?'☀':'☾'}
+          </button>
+        </div>
+        {items.map(item => (
+          <button key={item.label} onClick={item.onClick} style={{
+            width:'100%', background:'transparent', border:'none', borderBottom:'1px solid var(--border)',
+            padding:'14px 4px', display:'flex', alignItems:'center', gap:14, cursor:'pointer',
+            fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:500,
+            color:item.muted?'var(--muted)':'var(--text)' }}>
+            <span style={{ fontSize:16, width:20, textAlign:'center', flexShrink:0 }}>{item.icon}</span>
+            <span style={{ flex:1, textAlign:'left' }}>{item.label}</span>
+            {item.badge && (
+              <span style={{ background:'var(--accent-soft)', color:'var(--accent)', fontSize:10, fontWeight:700,
+                padding:'2px 8px', borderRadius:999, border:'1px solid var(--accent-border)' }}>{item.badge}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShellLayout({ isMobile, isTablet, sidebarCollapsed, onToggleCollapse, moreOpen, onMoreClose, onMoreOpen, appState, toggleTheme, user, onWhatsNew, onShare, shareStatus, onRestart, onSignOut, hasGoals, canAddMore, onAddGoal, goals, activeGoalId, onSelectGoal, title, subtitle, children }) {
+  return (
+    <div style={{ display:'flex', minHeight:'100svh', background:'var(--bg)' }}>
+      {!isMobile && (
+        <PlannerSidebar collapsed={sidebarCollapsed} onToggleCollapse={onToggleCollapse}
+          theme={appState.theme} onToggleTheme={toggleTheme} user={user}
+          onWhatsNew={onWhatsNew} onShare={onShare} shareStatus={shareStatus}
+          onRestart={onRestart} onSignOut={onSignOut}
+          hasGoals={hasGoals} canAddMore={canAddMore} onAddGoal={onAddGoal}
+          goals={goals} activeGoalId={activeGoalId} onSelectGoal={onSelectGoal} />
+      )}
+      <main style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+        {isMobile ? (
+          <MobileTopBar title={title} subtitle={subtitle} />
+        ) : (
+          <ContextHeader title={title} subtitle={subtitle}
+            theme={appState.theme} onToggleTheme={toggleTheme}
+            collapsed={sidebarCollapsed} compact={isTablet} />
+        )}
+        <div className="container">{children}</div>
+      </main>
+      {isMobile && (
+        <>
+          <PlannerBottomNav onMore={onMoreOpen} onWhatsNew={onWhatsNew} />
+          <PlannerMoreSheet open={moreOpen} onClose={onMoreClose}
+            theme={appState.theme} onToggleTheme={toggleTheme} user={user}
+            onWhatsNew={onWhatsNew} onShare={onShare} onRestart={onRestart} onSignOut={onSignOut}
+            hasGoals={hasGoals} canAddMore={canAddMore} onAddGoal={onAddGoal} />
+        </>
+      )}
+      {shareStatus && (
+        <div style={{ position:'fixed', bottom: isMobile ? 76 : 24, left:'50%', transform:'translateX(-50%)',
+          background:'var(--text)', color:'var(--bg)', padding:'10px 18px', borderRadius:12,
+          fontSize:13, fontWeight:600, zIndex:200, whiteSpace:'nowrap',
+          boxShadow:'0 4px 16px rgba(0,0,0,0.24)', pointerEvents:'none' }}>
+          {shareStatus}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InlineTitle({ value, onSave, style = {} }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const [hover, setHover] = React.useState(false);
+  const inputRef = React.useRef(null);
+  React.useEffect(() => { setDraft(value); }, [value]);
+  React.useEffect(() => {
+    if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
+  }, [editing]);
+  const commit = () => {
+    const trimmed = draft.trim().slice(0, 48);
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    else setDraft(value);
+    setEditing(false);
+  };
+  const cancel = () => { setDraft(value); setEditing(false); };
+  if (editing) {
+    return (
+      <input ref={inputRef} value={draft}
+        onChange={e => setDraft(e.target.value.slice(0, 48))}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') cancel(); }}
+        style={{ ...style, background:'var(--surface-2)', border:'1px solid var(--accent-border)',
+          borderRadius:8, padding:'2px 8px', margin:'-3px -9px',
+          outline:0, color:'var(--text)', minWidth:240, maxWidth:'100%',
+          fontFamily:"'DM Sans', sans-serif" }} />
+    );
+  }
+  return (
+    <span onClick={() => setEditing(true)}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      title="Click para renombrar"
+      style={{ ...style, cursor:'pointer', borderRadius:8, padding:'2px 8px', margin:'-2px -8px',
+        background: hover ? 'var(--surface-2)' : 'transparent',
+        transition:'background 0.15s ease', display:'inline-block' }}>
+      {value}
+    </span>
+  );
+}
+
+const ArchiveModal = ({ goal, contribCount, onClose, onConfirm, busy }) => (
+  <div className="whats-new-overlay" onClick={busy ? undefined : onClose}>
+    <div className="whats-new-card" style={{ maxWidth:440 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--muted)', marginBottom:6 }}>Archivar meta</div>
+      <h3 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 12px' }}>
+        ¿Archivar <span style={{ color:'var(--accent)' }}>{goal.title}</span>?
+      </h3>
+      <p style={{ fontSize:13, color:'var(--muted-2)', lineHeight:1.55, margin:'0 0 18px' }}>
+        Tus <strong style={{ color:'var(--text)' }}>{contribCount} aporte{contribCount===1?'':'s'} registrado{contribCount===1?'':'s'}</strong> se conservarán intactos pero quedarán ocultos del seguimiento mensual y de la lista de metas activas. Puedes restaurarla cuando quieras desde <strong style={{ color:'var(--text)' }}>Archivadas</strong>.
+      </p>
+      <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+        <button className="ghost-button" onClick={onClose} disabled={busy}>Cancelar</button>
+        <button className="ghost-button" onClick={onConfirm} disabled={busy}
+          style={{ background:'rgba(245,158,11,0.12)', borderColor:'rgba(245,158,11,0.36)', color:'var(--warning)' }}>
+          {busy ? 'Archivando…' : 'Archivar'}
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 const WhatsNewModal = ({ onClose }) => (
   <div className="whats-new-overlay" onClick={onClose}>
@@ -2203,6 +2617,16 @@ function App() {
   const [showWhatsNew, setShowWhatsNew] = React.useState(false);
   const [user, setUser] = React.useState(null);  // null=loading, obj=authenticated
 
+  // Sidebar + responsive (must precede all conditional returns)
+  const bp = useBreakpoint();
+  const isMobile = bp==='mobile', isTablet=bp==='tablet';
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  React.useEffect(() => { setSidebarCollapsed(isTablet); }, [isTablet]);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [archiveTarget, setArchiveTarget] = React.useState(null);
+  const [archiveCount,  setArchiveCount]  = React.useState(0);
+  const [archiveBusy,   setArchiveBusy]   = React.useState(false);
+
   // Auth guard: check session on boot, redirect to auth.html if not signed in
   React.useEffect(() => {
     if (typeof db === 'undefined') return; // supabase not loaded
@@ -2219,6 +2643,32 @@ function App() {
     return () => { if (sub) sub.unsubscribe(); };
   }, []);
 
+  // Fetch goals from Supabase once on user load. Supabase wins over localStorage.
+  const goalsFetchedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!user || typeof db === 'undefined' || goalsFetchedRef.current) return;
+    goalsFetchedRef.current = true;
+    db.from('goals')
+      .select('id,title,goal_purpose,current_val,monthly_add,goal_amount,expected_return,goal_years')
+      .eq('user_id', user.id)
+      .is('archived_at', null)
+      .order('created_at', { ascending: true })
+      .then(({ data, error }) => {
+        if (error) { console.warn('[supabase] load goals failed:', error.message); return; }
+        if (!data || data.length === 0) return; // new user — keep local state
+        const goalsFromDb = data.map((g, i) => sanitizeGoal({
+          id: g.id, title: g.title, goalPurpose: g.goal_purpose,
+          currentVal: g.current_val, monthlyAdd: g.monthly_add,
+          goalAmount: g.goal_amount, expectedReturn: g.expected_return,
+          goalYears: g.goal_years,
+        }, i));
+        setAppState((prev) => {
+          const activeId = prev.activeGoalId && goalsFromDb.find(g => g.id === prev.activeGoalId)
+            ? prev.activeGoalId : goalsFromDb[0].id;
+          return { ...prev, goals: goalsFromDb, activeGoalId: activeId, onboardingComplete: true };
+        });
+      });
+  }, [user]);
 
   // Lock body scroll when any modal is open
   React.useEffect(() => {
@@ -2305,6 +2755,31 @@ function App() {
     setAppState((prev) => ({ ...prev, onboardingComplete: false }));
   };
 
+  const handleArchive = async (goal) => {
+    setArchiveTarget(goal);
+    setArchiveCount(0);
+    try {
+      const c = await countGoalContributions(goal.id);
+      setArchiveCount(c);
+    } catch(e) { setArchiveCount(0); }
+  };
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiveBusy(true);
+    try {
+      await archiveGoalRow(archiveTarget.id);
+      setAppState((prev) => {
+        const remaining = prev.goals.filter(g => g.id !== archiveTarget.id);
+        const nextActive = prev.activeGoalId === archiveTarget.id
+          ? (remaining[0]?.id || prev.activeGoalId)
+          : prev.activeGoalId;
+        return { ...prev, goals: remaining, activeGoalId: nextActive };
+      });
+      setArchiveTarget(null);
+    } catch(e) { console.error('[archive]', e); }
+    finally { setArchiveBusy(false); }
+  };
+
   const toggleTheme = () => {
     setAppState((prev) => ({ ...prev, theme: prev.theme === 'dark' ? 'light' : 'dark' }));
   };
@@ -2344,15 +2819,29 @@ function App() {
     }));
   };
 
+  const hasGoals = appState.goals.length > 0;
+  const canAddMore = appState.goals.length < MAX_GOALS;
+  const goalsWithStatus = appState.goals.map(g => {
+    const fv = futureValue(g.currentVal, g.expectedReturn/100, g.goalYears, g.monthlyAdd);
+    return { id:g.id, title:g.title, tone:statusFromProjection(fv, g.goalAmount) };
+  });
+  const onSelectGoal = (goalId) => setAppState(prev => ({ ...prev, activeGoalId: goalId }));
+  const shellProps = {
+    isMobile, isTablet, sidebarCollapsed, onToggleCollapse:()=>setSidebarCollapsed(c=>!c),
+    moreOpen, onMoreClose:()=>setMoreOpen(false), onMoreOpen:()=>setMoreOpen(true),
+    appState, toggleTheme, user,
+    onWhatsNew:()=>setShowWhatsNew(true), onShare:copyShareLink,
+    shareStatus, onRestart:restartOnboarding, onSignOut:signOut,
+    hasGoals, canAddMore, onAddGoal:addGoal,
+    goals:goalsWithStatus, activeGoalId:appState.activeGoalId, onSelectGoal,
+  };
+
   if (!appState.onboardingComplete) {
     return (
-      <OnboardingScreen
-        draft={onboardingDraft}
-        setDraft={setOnboardingDraft}
-        onStart={startFromOnboarding}
-        theme={appState.theme}
-        onToggleTheme={toggleTheme}
-      />
+      <ShellLayout {...shellProps} title="Goal planner" subtitle="BIENVENIDO">
+        {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
+        <OnboardingScreen draft={onboardingDraft} setDraft={setOnboardingDraft} onStart={startFromOnboarding} />
+      </ShellLayout>
     );
   }
 
@@ -2369,26 +2858,22 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <div className="topbar">
-        <div>
-          <h1 className="page-title"><span className="brand-mark">{'✦'}</span><span style={{ color:'var(--accent)' }}>{'Goal'}</span>{' planner'}</h1>
-          <p className="page-sub brand-tagline">{'Planea hoy. Llega mañana.'}</p>
-        </div>
-        <div className="toolbar">
-          <button className="version-pill" onClick={() => setShowWhatsNew(true)}>{'✦ Nuevo'}</button>
-          <button className="ghost-button" onClick={restartOnboarding}><RefreshIcon /><span className="theme-toggle-text">{'Rehacer onboarding'}</span></button>
-          <button className="ghost-button" onClick={copyShareLink}>{shareStatus ? <CheckIcon /> : <ShareIcon />}{shareStatus || 'Compartir'}</button>
-          <button className="ghost-button" onClick={toggleTheme}>{appState.theme === 'dark' ? <SunIcon /> : <MoonIcon />}<span className="theme-toggle-text">{appState.theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span></button>
-          <button className="ghost-button" onClick={signOut} title="Cerrar sesion"><LogoutIcon /><span className="theme-toggle-text">Salir</span></button>
-        </div>
-      </div>
+    <ShellLayout {...shellProps} title={activeGoal.title} subtitle="PLANNER">
       {showWhatsNew && <WhatsNewModal onClose={() => setShowWhatsNew(false)} />}
+      {archiveTarget && (
+        <ArchiveModal goal={archiveTarget} contribCount={archiveCount} busy={archiveBusy}
+          onClose={() => !archiveBusy && setArchiveTarget(null)}
+          onConfirm={confirmArchive} />
+      )}
 
       <Card padding={22} style={{ background: 'linear-gradient(135deg,var(--surface),var(--surface-2))', marginBottom: 20 }}>
         <SectionTitle>{'Plan activo'}</SectionTitle>
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em', marginBottom: 6 }}>{activeGoal.title}</div>
+          <div style={{ marginBottom: 6 }}>
+            <InlineTitle value={activeGoal.title}
+              onSave={(t) => patchGoal(activeGoal.id, { title: t })}
+              style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.04em' }} />
+          </div>
           <div className="page-sub">{`${PURPOSE_MAP[activeGoal.goalPurpose].label} · ${fmt(activeGoal.goalAmount)} en ${activeGoal.goalYears} ${activeGoal.goalYears === 1 ? 'año' : 'años'}`}</div>
         </div>
         <div className="hero-points">
@@ -2419,7 +2904,7 @@ function App() {
           activeGoalId={activeGoal.id}
           onSelect={(goalId) => setAppState((prev) => ({ ...prev, activeGoalId: goalId }))}
           onAddGoal={addGoal}
-          onRemoveGoal={removeGoal}
+          onArchiveGoal={handleArchive}
         />
         <div>
           <div className="setup-grid">
@@ -2468,9 +2953,9 @@ function App() {
       <div style={{ textAlign: 'center', padding: '20px 0 6px', color: 'var(--muted)', fontSize: 12 }}>
         <div style={{ marginBottom: 5, fontSize: 13, fontWeight: 500, fontStyle: 'italic', color: 'var(--muted-2)' }}>{'Planea hoy. Llega mañana.'}</div>
         <span style={{ color: 'var(--accent)', marginRight: 5, fontSize: 11 }}>{'✦'}</span>
-        {`© ${CURRENT_YEAR} Goal Planner · v1.4`}
+        {`© ${CURRENT_YEAR} Goal Planner · v1.5`}
       </div>
-    </div>
+    </ShellLayout>
   );
 }
 

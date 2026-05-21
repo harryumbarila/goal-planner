@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguimiento · Goal Planner</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext x='50%25' y='78%25' font-size='26' text-anchor='middle' fill='%232563eb'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
+<style>
+/* ─── Tokens ─────────────────────────────────────────────── */
+:root, body[data-theme="dark"] {
+  --bg:#0c0c0f; --surface:#141418; --surface-2:#1c1c22; --surface-3:#101014;
+  --text:#e8e6e1; --muted:#6a6960; --muted-2:#9a9890; --border:rgba(255,255,255,0.08);
+  --accent:#3b82f6; --accent-soft:rgba(59,130,246,0.12); --accent-border:rgba(59,130,246,0.32);
+  --success:#22c55e; --warning:#f59e0b; --danger:#ef4444;
+  --shadow:0 16px 40px rgba(0,0,0,0.22);
+}
+body[data-theme="light"] {
+  --bg:#f3efe4; --surface:#ffffff; --surface-2:#f8f5ee; --surface-3:#f2ede3;
+  --text:#171717; --muted:#667085; --muted-2:#475467; --border:rgba(15,23,42,0.12);
+  --accent:#2563eb; --accent-soft:rgba(37,99,235,0.10); --accent-border:rgba(37,99,235,0.24);
+  --success:#16a34a; --warning:#d97706; --danger:#dc2626;
+  --shadow:0 16px 28px rgba(15,23,42,0.08);
+}
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  transition: background 0.25s, color 0.25s; }
+#root { display: flex; flex-direction: column; min-height: 100svh; }
+button { font-family: inherit; }
+
+/* Sidebar transition */
+.sidebar { transition: width 0.2s ease; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+/* Range thumb */
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 15px; height: 15px; border-radius: 999px;
+  background: var(--accent); border: 2px solid var(--surface); cursor: pointer;
+  transition: transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 999px;
+  background: var(--accent); border: 2px solid var(--surface); cursor: pointer;
+}
+
+/* ─── Responsive helpers ─────────────────────────────────── */
+@media (max-width: 680px) {
+  .plan-grid { grid-template-columns: 1fr !important; }
+  .contrib-row { grid-template-columns: 80px 1fr 1fr !important; }
+  .contrib-planned { display: none !important; }
+}
+</style>
+</head>
+<body data-theme="light">
+<div id="root"></div>
+
+<script type="text/babel">
+/* ═══════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════ */
+const APP_STORAGE_KEY = 'goal-planner-state-v4'; // solo para leer el tema
+
+const WHATS_NEW = {
+  version: '✦ v1.5 — Seguimiento',
+  items: [
+    { title: 'Recordatorio mensual', desc: 'Al entrar al seguimiento te preguntamos si ya aportaste. Un clic y queda registrado.' },
+    { title: 'Real vs. plan en tiempo real', desc: 'Ve exactamente cuánto llevas acumulado frente a lo que el plan dice que deberías tener hoy, con la diferencia en pesos.' },
+    { title: 'Historial mes a mes', desc: 'Cada mes queda con su estado: Saldado, Parcial, Omitido o Pendiente. Siempre sabes qué pasó.' },
+    { title: 'Registrar cualquier monto', desc: 'Aportaste más, menos o nada este mes — lo registras con un campo libre, chips rápidos (50% · 100% · 150%) y una nota opcional.' },
+    { title: 'Re-planear cuando vas atrás', desc: 'Si el saldo real cae debajo del esperado, el app te ofrece cuatro opciones: subir el aporte, extender el plazo, bajar la meta, o solo ver sin cambiar nada.' },
+    { title: 'Indicador de salud por meta', desc: 'Cada meta muestra En camino, Atrás un poco o Hay que ajustar según qué tan cerca estás del plan proyectado.' },
+  ],
+};
+
+/* ═══════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════ */
+const COP      = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+const fmtCOP   = (n) => isFinite(n) ? '$ ' + COP.format(Math.round(n)) : '—';
+const fmtAbbrev = (n) => {
+  if (!isFinite(n)) return '—';
+  const abs = Math.abs(n), sign = n < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + '$' + (abs/1e9).toFixed(1).replace(/\.0$/,'') + 'MM';
+  if (abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (abs >= 1e3) return sign + '$' + (abs/1e3).toFixed(0) + 'K';
+  return sign + '$' + COP.format(abs);
+};
+
+const currentMonthKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+};
+const fmtMonthKey = (key) => {
+  const [y,m] = key.split('-').map(Number);
+  return new Date(y,m-1).toLocaleDateString('es-CO',{month:'short',year:'numeric'});
+};
+const buildMonthRows = (startDate, contributions) => {
+  const [sy,sm] = startDate.split('-').map(Number);
+  const now = new Date();
+  const rows = [];
+  let y=sy, m=sm;
+  while (y < now.getFullYear() || (y===now.getFullYear() && m<=now.getMonth()+1)) {
+    const key = `${y}-${String(m).padStart(2,'0')}`;
+    const c   = contributions.find(x => x.month === key);
+    rows.push({ key, month:fmtMonthKey(key), amount:c?c.amount:null, note:c?.note||'', dbId:c?.id||null });
+    m++; if (m>12){m=1;y++;}
+  }
+  return rows.reverse();
+};
+const calcExpected = (startDate, startBalance, goal) => {
+  const r = (goal.expected_return/100)/12;
+  const [sy,sm] = startDate.split('-').map(Number);
+  const now = new Date();
+  const months = (now.getFullYear()-sy)*12+(now.getMonth()-(sm-1));
+  let v = startBalance;
+  for (let i=0;i<months;i++) v = v*(1+r)+goal.monthly_add;
+  return Math.round(v);
+};
+const calcReal = (startBalance, contributions) =>
+  startBalance + contributions.reduce((s,c)=>s+(c.amount||0),0);
+const projectedValue = (goal) => {
+  const r = (goal.expected_return/100)/12;
+  const months = goal.goal_years * 12;
+  let v = goal.current_val;
+  for (let i=0; i<months; i++) v = v*(1+r) + goal.monthly_add;
+  return Math.round(v);
+};
+const statusFromProjection = (fv, target) => {
+  if (fv >= target) return 'green';
+  if (fv >= target * 0.7) return 'amber';
+  return 'red';
+};
+
+const userInitials = (user) => {
+  const name = user?.user_metadata?.full_name || user?.email || '';
+  if (!name) return '?';
+  if (name.includes('@')) return name[0].toUpperCase();
+  return name.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase();
+};
+
+/* ═══════════════════════════════════════════════════
+   SUPABASE
+═══════════════════════════════════════════════════ */
+const loadGoals = async (userId) => {
+  const { data, error } = await db.from('goals')
+    .select('id,title,goal_purpose,current_val,monthly_add,goal_amount,expected_return,goal_years,tracking_start_date,tracking_start_balance')
+    .eq('user_id', userId).is('archived_at', null)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+const loadArchivedGoals = async (userId) => {
+  const { data, error } = await db.from('goals')
+    .select('id,title,goal_purpose,current_val,monthly_add,goal_amount,expected_return,goal_years,archived_at')
+    .eq('user_id', userId).not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+const archiveGoal = async (goalId) => {
+  const { error } = await db.from('goals').update({ archived_at: new Date().toISOString() }).eq('id', goalId);
+  if (error) throw error;
+};
+const unarchiveGoal = async (goalId) => {
+  const { error } = await db.from('goals').update({ archived_at: null }).eq('id', goalId);
+  if (error) throw error;
+};
+const countContributions = async (goalId) => {
+  const { count, error } = await db.from('contributions').select('*', { count:'exact', head:true }).eq('goal_id', goalId);
+  if (error) return 0;
+  return count || 0;
+};
+const loadContributions = async (goalId) => {
+  const { data, error } = await db.from('contributions')
+    .select('id,month,amount,note').eq('goal_id', goalId)
+    .order('month', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+const upsertContribution = async (userId, goalId, month, amount, note, existingId) => {
+  const row = { user_id:userId, goal_id:goalId, month, amount, note,
+    updated_at: new Date().toISOString(), ...(existingId?{id:existingId}:{}) };
+  const { data, error } = await db.from('contributions')
+    .upsert(row, { onConflict:'goal_id,month' }).select('id').single();
+  if (error) throw error;
+  return data.id;
+};
+const updateGoalTitle = async (goalId, title) => {
+  const { error } = await db.from('goals').update({ title }).eq('id', goalId);
+  if (error) throw error;
+};
+const initTrackingStart = async (goalId, startDate, startBalance) => {
+  const { error } = await db.from('goals')
+    .update({ tracking_start_date:startDate, tracking_start_balance:startBalance }).eq('id', goalId);
+  if (error) console.warn('[supabase] initTracking:', error.message);
+};
+
+/* ═══════════════════════════════════════════════════
+   PRIMITIVES
+═══════════════════════════════════════════════════ */
+const css = (v) => `var(${v})`;
+const Label = ({ children, style }) => (
+  <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted'), ...style }}>{children}</div>
+);
+const Card = ({ children, padding=20, hero=false, style }) => (
+  <div style={{
+    background:hero?`linear-gradient(135deg,${css('--surface')},${css('--surface-2')})`:css('--surface'),
+    border:`1px solid ${css('--border')}`, borderRadius:18, padding, boxShadow:css('--shadow'), ...style,
+  }}>{children}</div>
+);
+const Mono = ({ children, size=14, weight=500, color, style }) => (
+  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:size, fontWeight:weight,
+    letterSpacing:size>=20?'-0.02em':0, color:color||css('--text'), ...style }}>{children}</span>
+);
+const Field = ({ label, children }) => (
+  <div style={{ display:'grid', gap:8, marginBottom:14 }}>
+    <Label>{label}</Label>{children}
+  </div>
+);
+const Button = ({ kind='primary', onClick, disabled, children, style }) => {
+  const base = { fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:600, borderRadius:12, padding:'10px 14px',
+    cursor:disabled?'default':'pointer', transition:'all 0.18s ease', opacity:disabled?0.45:1, border:'none', ...style };
+  return kind==='ghost'
+    ? <button onClick={onClick} disabled={disabled} style={{ ...base, background:css('--surface'), border:`1px solid ${css('--border')}`, color:css('--text') }}>{children}</button>
+    : <button onClick={onClick} disabled={disabled} style={{ ...base, background:css('--accent-soft'), border:`1px solid ${css('--accent-border')}`, color:css('--accent') }}>{children}</button>;
+};
+const Chip = ({ active, onClick, children }) => (
+  <button onClick={onClick} style={{
+    background:active?css('--accent-soft'):css('--surface-2'), border:`1px solid ${active?css('--accent-border'):css('--border')}`,
+    color:active?css('--accent'):css('--text'), borderRadius:999, padding:'8px 12px',
+    fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.18s ease',
+  }}>{children}</button>
+);
+const CurrencyInput = ({ value, onChange, ariaLabel }) => {
+  const ref = React.useRef(null);
+  const [focus, setFocus] = React.useState(false);
+  const display = '$ ' + COP.format(Math.max(0, Math.round(value||0)));
+  const handleChange = (e) => {
+    const raw = e.target.value.replace(/[^\d]/g,'');
+    const num = raw===''?0:parseInt(raw,10);
+    const caret = e.target.selectionStart||0;
+    const dl = e.target.value.slice(0,caret).replace(/[^\d]/g,'').length;
+    onChange(num);
+    requestAnimationFrame(() => {
+      if (!ref.current) return;
+      const next = ref.current.value;
+      let pos=0, seen=0;
+      while (pos<next.length && seen<dl){ if(/\d/.test(next[pos]))seen++; pos++; }
+      ref.current.setSelectionRange(pos,pos);
+    });
+  };
+  return (
+    <input ref={ref} type="text" inputMode="numeric" aria-label={ariaLabel} value={display} onChange={handleChange}
+      onFocus={()=>setFocus(true)} onBlur={()=>setFocus(false)}
+      style={{ background:css('--surface-2'), border:`1px solid ${focus?css('--accent-border'):css('--border')}`,
+        borderRadius:12, padding:'10px 12px', width:'100%', textAlign:'right',
+        fontFamily:"'JetBrains Mono',monospace", fontSize:14, fontWeight:500, color:css('--text'), outline:0,
+        transition:'border-color 0.18s ease' }} />
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   HEALTH PILL
+═══════════════════════════════════════════════════ */
+const HealthPill = ({ tone, children }) => {
+  const map = {
+    green:{ bg:'rgba(34,197,94,0.12)', br:'rgba(34,197,94,0.36)', fg:css('--success'), icon:'✓' },
+    amber:{ bg:'rgba(245,158,11,0.12)', br:'rgba(245,158,11,0.36)', fg:css('--warning'), icon:'!' },
+    red:  { bg:'rgba(239,68,68,0.12)', br:'rgba(239,68,68,0.36)', fg:css('--danger'), icon:'⚠' },
+  };
+  const c = map[tone]||map.amber;
+  return (
+    <span style={{ background:c.bg, border:`1px solid ${c.br}`, color:c.fg, borderRadius:999, padding:'5px 10px',
+      display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, letterSpacing:'0.04em', whiteSpace:'nowrap' }}>
+      <span style={{ fontSize:10, fontWeight:800 }}>{c.icon}</span>{children}
+    </span>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   APP SHELL — BREAKPOINT
+═══════════════════════════════════════════════════ */
+function useBreakpoint() {
+  const get = () => {
+    const w = window.innerWidth;
+    if (w < 768) return 'mobile';
+    if (w < 1100) return 'tablet';
+    return 'desktop';
+  };
+  const [bp, setBp] = React.useState(get);
+  React.useEffect(() => {
+    const fn = () => setBp(get());
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return bp;
+}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR ITEM
+═══════════════════════════════════════════════════ */
+function SidebarItem({ icon, label, active, muted, collapsed, badge, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const bg = active ? css('--text') : hover ? css('--surface-2') : 'transparent';
+  const fg = active ? css('--surface') : muted ? css('--muted') : css('--text');
+  return (
+    <button onClick={onClick}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      title={collapsed ? label : undefined}
+      style={{
+        display:'flex', alignItems:'center', gap:12,
+        padding:collapsed?'9px 0':'9px 12px',
+        justifyContent:collapsed?'center':'flex-start',
+        background:bg, color:fg, border:'none', borderRadius:10,
+        cursor:'pointer', textAlign:'left',
+        fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:active?600:500,
+        width:'100%', transition:'background 0.15s ease, color 0.15s ease',
+        position:'relative',
+      }}>
+      <span style={{ fontSize:15, width:18, display:'inline-grid', placeItems:'center', flexShrink:0 }}>{icon}</span>
+      {!collapsed && <span style={{ flex:1, whiteSpace:'nowrap' }}>{label}</span>}
+      {!collapsed && badge && (
+        <span style={{ background:css('--accent-soft'), color:css('--accent'), fontSize:10, fontWeight:700,
+          padding:'1px 7px', borderRadius:999, border:`1px solid ${css('--accent-border')}` }}>{badge}</span>
+      )}
+      {collapsed && badge && (
+        <span style={{ position:'absolute', top:4, right:6, width:7, height:7, borderRadius:999, background:css('--accent') }} />
+      )}
+    </button>
+  );
+}
+
+function SidebarSubItem({ label, tone, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  const toneColor = tone==='green'?css('--success'):tone==='amber'?css('--warning'):tone==='red'?css('--danger'):css('--muted');
+  return (
+    <button onClick={onClick}
+      onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
+      style={{ display:'flex', alignItems:'center', gap:8,
+        padding:'6px 12px 6px 30px',
+        background:active?css('--accent-soft'):hover?css('--surface-2'):'transparent',
+        color:active?css('--accent'):css('--text'),
+        border:'none', borderRadius:8, cursor:'pointer', textAlign:'left',
+        fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:active?600:500,
+        width:'100%', transition:'background 0.15s ease, color 0.15s ease' }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:toneColor, flexShrink:0 }} />
+      <span style={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{label}</span>
+    </button>
+  );
+}
+
+function SidebarGroup({ title, collapsed, children }) {
+  return (
+    <div style={{ marginTop:14 }}>
+      {!collapsed && <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase',
+        color:css('--muted'), padding:'0 12px 6px' }}>{title}</div>}
+      {collapsed && <div style={{ height:1, background:css('--border'), margin:'8px' }} />}
+      <div style={{ display:'grid', gap:2 }}>{children}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════════ */
+function Sidebar({ active, onNav, collapsed, onToggleCollapse, theme, onToggleTheme, user, goals, activeGoalId, onSelectGoal }) {
+  const initials = userInitials(user);
+  const email = user?.email || '';
+  const displayName = user?.user_metadata?.full_name?.split(' ')[0] || email.split('@')[0] || 'Usuario';
+
+  return (
+    <aside className="sidebar" style={{
+      width:collapsed?64:232, flexShrink:0,
+      background:css('--surface'), borderRight:`1px solid ${css('--border')}`,
+      display:'flex', flexDirection:'column',
+      height:'100vh', position:'sticky', top:0,
+    }}>
+      {/* Logo + collapse toggle */}
+      <div style={{ padding:collapsed?'16px 8px':'16px 14px 12px',
+        display:'flex', alignItems:'center', justifyContent:collapsed?'center':'space-between' }}>
+        {!collapsed && (
+          <a href="index.html" style={{ display:'flex', alignItems:'baseline', gap:6, textDecoration:'none' }}>
+            <span style={{ color:css('--accent'), fontSize:18 }}>✦</span>
+            <span style={{ fontWeight:700, fontSize:15, letterSpacing:'-0.03em' }}>
+              <span style={{ color:css('--accent') }}>Goal</span>
+              <span style={{ color:css('--text') }}> planner</span>
+            </span>
+          </a>
+        )}
+        {collapsed && (
+          <a href="index.html" style={{ textDecoration:'none', color:css('--accent'), fontSize:20 }}>✦</a>
+        )}
+        {!collapsed && (
+          <button onClick={onToggleCollapse} aria-label="Colapsar sidebar" style={{
+            background:'transparent', border:`1px solid ${css('--border')}`,
+            color:css('--muted-2'), width:24, height:24, borderRadius:7,
+            cursor:'pointer', fontSize:11, lineHeight:1, padding:0,
+          }}>‹</button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <div style={{ flex:1, overflowY:'auto', padding:collapsed?'0 8px':'0 12px' }}>
+        <SidebarGroup title="Vistas" collapsed={collapsed}>
+          <SidebarItem icon="◐" label="Planner" active={active==='plan'} collapsed={collapsed} onClick={()=>window.location.href='index.html'} />
+          <SidebarItem icon="⌁" label="Seguimiento" active={active==='seg'} collapsed={collapsed} onClick={()=>onNav('seg')} />
+          {!collapsed && active==='seg' && goals && goals.length > 1 && goals.map(g => (
+            <SidebarSubItem key={g.id} label={g.title} tone={g.tone}
+              active={g.id===activeGoalId} onClick={()=>onSelectGoal(g.id)} />
+          ))}
+          <SidebarItem icon="≡" label="Histórico" active={active==='hist'} collapsed={collapsed} muted onClick={()=>onNav('hist')} />
+          <SidebarItem icon="⊡" label="Archivadas" active={active==='arch'} collapsed={collapsed} onClick={()=>onNav('arch')} />
+        </SidebarGroup>
+        <SidebarGroup title="Cuenta" collapsed={collapsed}>
+          <SidebarItem icon="✦" label="Novedades" collapsed={collapsed} badge="Nuevo" onClick={()=>onNav('news')} />
+          <SidebarItem icon="→" label="Salir" collapsed={collapsed} muted onClick={async()=>{ await db.auth.signOut(); window.location.href='auth.html'; }} />
+        </SidebarGroup>
+
+        {collapsed && (
+          <div style={{ paddingTop:16 }}>
+            <button onClick={onToggleCollapse} aria-label="Expandir sidebar" style={{
+              width:'100%', background:'transparent', border:`1px solid ${css('--border')}`,
+              color:css('--muted-2'), height:28, borderRadius:7, cursor:'pointer', fontSize:13, padding:0,
+            }}>›</button>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding:collapsed?10:12, borderTop:`1px solid ${css('--border')}`,
+        display:'flex', alignItems:'center', gap:8, justifyContent:collapsed?'center':'space-between' }}>
+        {!collapsed && (
+          <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+            <div style={{ width:30, height:30, borderRadius:999, background:css('--accent-soft'),
+              color:css('--accent'), display:'grid', placeItems:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>{initials}</div>
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:css('--text'), lineHeight:1.2 }}>{displayName}</div>
+              <div style={{ fontSize:10, color:css('--muted'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:130 }}>{email}</div>
+            </div>
+          </div>
+        )}
+        {collapsed && (
+          <div style={{ width:30, height:30, borderRadius:999, background:css('--accent-soft'),
+            color:css('--accent'), display:'grid', placeItems:'center', fontSize:11, fontWeight:700 }}>{initials}</div>
+        )}
+        {!collapsed && (
+          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+            background:'transparent', border:`1px solid ${css('--border')}`,
+            color:css('--muted-2'), width:30, height:30, borderRadius:8, cursor:'pointer', fontSize:13, padding:0, flexShrink:0,
+          }}>{theme==='dark'?'☀':'☾'}</button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   CONTEXT HEADER (desktop / tablet)
+═══════════════════════════════════════════════════ */
+function ContextHeader({ title, subtitle, theme, onToggleTheme, collapsed, compact }) {
+  return (
+    <header style={{
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:compact?'12px 18px':'14px 28px',
+      borderBottom:`1px solid ${css('--border')}`,
+      background:css('--bg'), position:'sticky', top:0, zIndex:10,
+      backdropFilter:'blur(6px)', gap:12,
+    }}>
+      <div style={{ minWidth:0 }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted') }}>{subtitle}</div>
+        <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+        {collapsed && (
+          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+            background:'transparent', border:`1px solid ${css('--border')}`,
+            color:css('--muted-2'), width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0,
+          }}>{theme==='dark'?'☀':'☾'}</button>
+        )}
+        <a href="index.html" style={{
+          background:'transparent', border:`1px solid ${css('--border')}`,
+          color:css('--muted-2'), height:34, borderRadius:10, cursor:'pointer', fontSize:13,
+          padding:compact?0:'0 12px', width:compact?34:'auto',
+          display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+          fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none',
+        }}>
+          <span>◐</span>
+          {!compact && <span>Planner</span>}
+        </a>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MOBILE TOP BAR
+═══════════════════════════════════════════════════ */
+function MobileTopBar({ title, subtitle }) {
+  return (
+    <header style={{
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'12px 16px', borderBottom:`1px solid ${css('--border')}`,
+      background:css('--bg'), position:'sticky', top:0, zIndex:10,
+      backdropFilter:'blur(6px)',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
+        <a href="index.html" style={{ color:css('--accent'), fontSize:18, flexShrink:0, textDecoration:'none' }}>✦</a>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted'), lineHeight:1 }}>{subtitle}</div>
+          <h1 style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   BOTTOM NAV (mobile)
+═══════════════════════════════════════════════════ */
+function BottomNav({ active, onNav }) {
+  const items = [
+    { id:'plan',  icon:'◐', label:'Planner',    href:'index.html' },
+    { id:'seg',   icon:'⌁', label:'Seguim.' },
+    { id:'hist',  icon:'≡', label:'Histórico' },
+    { id:'more',  icon:'⋯', label:'Más' },
+  ];
+  return (
+    <nav style={{
+      position:'fixed', bottom:0, left:0, right:0, zIndex:50,
+      display:'flex', justifyContent:'space-around', alignItems:'stretch',
+      background:css('--surface'), borderTop:`1px solid ${css('--border')}`,
+      paddingBottom:'env(safe-area-inset-bottom, 0px)',
+      boxShadow:'0 -2px 12px rgba(0,0,0,0.05)',
+    }}>
+      {items.map(item => {
+        const isActive = active===item.id;
+        return item.href ? (
+          <a key={item.id} href={item.href} style={{
+            flex:1, background:'transparent', border:'none', padding:'8px 4px 10px',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+            color:isActive?css('--accent'):css('--muted'),
+            textDecoration:'none', fontFamily:"'DM Sans',sans-serif",
+          }}>
+            <span style={{ fontSize:18, lineHeight:1 }}>{item.icon}</span>
+            <span style={{ fontSize:10, fontWeight:isActive?700:500 }}>{item.label}</span>
+          </a>
+        ) : (
+          <button key={item.id} onClick={()=>onNav(item.id)} style={{
+            flex:1, background:'transparent', border:'none', padding:'8px 4px 10px',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+            color:isActive?css('--accent'):css('--muted'),
+            cursor:'pointer', fontFamily:"'DM Sans',sans-serif",
+          }}>
+            <span style={{ fontSize:18, lineHeight:1 }}>{item.icon}</span>
+            <span style={{ fontSize:10, fontWeight:isActive?700:500 }}>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MORE SHEET (mobile)
+═══════════════════════════════════════════════════ */
+function WhatsNewModal({ onClose }) {
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)',
+      backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)', border:`1px solid var(--border)`,
+        borderRadius:20, padding:28, maxWidth:460, width:'100%', maxHeight:'80vh', overflowY:'auto', boxShadow:'var(--shadow)' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
+          <div>
+            <div style={{ fontSize:11, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>Novedades</div>
+            <div style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.03em' }}>{WHATS_NEW.version}</div>
+          </div>
+          <button onClick={onClose} style={{ background:'transparent', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:22, lineHeight:1, padding:4 }}>×</button>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {WHATS_NEW.items.map((item, i) => (
+            <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', marginTop:6, flexShrink:0 }} />
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:2 }}>{item.title}</div>
+                <div style={{ fontSize:13, color:'var(--muted)', lineHeight:1.45 }}>{item.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoreSheet({ open, onClose, theme, onToggleTheme, user, onWhatsNew }) {
+  if (!open) return null;
+  const initials = userInitials(user);
+  const email = user?.email || '';
+  const displayName = user?.user_metadata?.full_name || email;
+  const items = [
+    { id:'arch',    icon:'⊡', label:'Metas archivadas', onClick:()=>onClose() },
+    { id:'news',    icon:'✦', label:'Novedades', badge:'Nuevo', onClick:()=>{ onWhatsNew(); onClose(); } },
+    { id:'planner', icon:'◐', label:'Ir al Planner', onClick:()=>window.location.href='index.html' },
+    { id:'signout', icon:'→', label:'Salir', muted:true, onClick:async()=>{ await db.auth.signOut(); window.location.href='auth.html'; } },
+  ];
+  React.useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:60, display:'flex', alignItems:'flex-end' }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        background:css('--surface'), width:'100%',
+        borderTopLeftRadius:18, borderTopRightRadius:18,
+        padding:'12px 16px calc(20px + env(safe-area-inset-bottom, 0px))',
+        maxHeight:'70vh', overflowY:'auto',
+        boxShadow:'0 -8px 24px rgba(0,0,0,0.15)',
+      }}>
+        <div style={{ width:36, height:4, background:css('--border'), borderRadius:999, margin:'4px auto 14px' }} />
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 4px 14px',
+          borderBottom:`1px solid ${css('--border')}`, marginBottom:8 }}>
+          <div style={{ width:36, height:36, borderRadius:999, background:css('--accent-soft'),
+            color:css('--accent'), display:'grid', placeItems:'center', fontSize:12, fontWeight:700 }}>{initials}</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:14, fontWeight:600, color:css('--text') }}>{displayName}</div>
+            <div style={{ fontSize:11, color:css('--muted'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{email}</div>
+          </div>
+          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+            background:'transparent', border:`1px solid ${css('--border')}`,
+            color:css('--muted-2'), width:36, height:36, borderRadius:10, cursor:'pointer', fontSize:14, padding:0, flexShrink:0,
+          }}>{theme==='dark'?'☀':'☾'}</button>
+        </div>
+        {items.map(item => (
+          <button key={item.id} onClick={item.onClick} style={{
+            display:'flex', alignItems:'center', gap:14, width:'100%',
+            padding:'12px 10px', background:'transparent', border:'none', borderRadius:10,
+            cursor:'pointer', textAlign:'left', fontFamily:"'DM Sans',sans-serif",
+            fontSize:14, fontWeight:500, color:item.muted?css('--muted'):css('--text'),
+          }}>
+            <span style={{ fontSize:16, width:20, display:'inline-grid', placeItems:'center' }}>{item.icon}</span>
+            <span style={{ flex:1 }}>{item.label}</span>
+            {item.badge && (
+              <span style={{ background:css('--accent-soft'), color:css('--accent'), fontSize:10, fontWeight:700,
+                padding:'1px 7px', borderRadius:999, border:`1px solid ${css('--accent-border')}` }}>{item.badge}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   COMING SOON
+═══════════════════════════════════════════════════ */
+function ComingSoon({ icon, title, body }) {
+  return (
+    <div style={{ display:'grid', placeItems:'center', minHeight:420, padding:40 }}>
+      <div style={{ textAlign:'center', maxWidth:360 }}>
+        <div style={{ width:56, height:56, borderRadius:16, background:css('--surface-2'),
+          border:`1px solid ${css('--border')}`, display:'grid', placeItems:'center',
+          fontSize:24, color:css('--muted-2'), margin:'0 auto 16px' }}>{icon}</div>
+        <h2 style={{ fontSize:18, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 8px' }}>{title}</h2>
+        <p style={{ fontSize:13, color:css('--muted'), lineHeight:1.5, margin:0 }}>{body}</p>
+        <div style={{ display:'inline-block', marginTop:16, background:css('--accent-soft'), color:css('--accent'),
+          border:`1px solid ${css('--accent-border')}`, borderRadius:999, padding:'4px 10px',
+          fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Próximamente</div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MONTHLY REMINDER
+═══════════════════════════════════════════════════ */
+const MonthlyReminder = ({ goal, onConfirm, onOther, onLater }) => {
+  const monthName = new Date().toLocaleDateString('es-CO',{month:'long'});
+  return (
+    <Card padding={18} style={{ background:css('--accent-soft'), borderColor:css('--accent-border'), marginBottom:16 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:16 }}>
+        <div>
+          <h3 style={{ fontSize:17, fontWeight:700, letterSpacing:'-0.02em', color:css('--accent'), margin:'0 0 4px' }}>¿Aportaste en {monthName}?</h3>
+          <p style={{ fontSize:13, color:css('--muted'), margin:0 }}>
+            Tienes planeado aportar <strong style={{ color:css('--text') }}>{fmtCOP(goal.monthly_add)}</strong> a <strong style={{ color:css('--text') }}>{goal.title}</strong>.
+          </p>
+        </div>
+        <Mono size={11} color={css('--accent')} style={{ flexShrink:0 }}>
+          {new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}).toUpperCase()}
+        </Mono>
+      </div>
+      <div style={{ display:'flex', gap:8, marginTop:14, flexWrap:'wrap' }}>
+        <button onClick={onConfirm} style={{ flex:1, minWidth:120, background:css('--accent'), border:'none', color:'#fff',
+          fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, borderRadius:12, padding:'10px 14px', cursor:'pointer' }}>
+          Sí, {fmtCOP(goal.monthly_add)}
+        </button>
+        <Button kind="ghost" onClick={onOther}>Otro monto</Button>
+        <Button kind="ghost" onClick={onLater}>Aún no</Button>
+      </div>
+    </Card>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   GOAL HEADER
+═══════════════════════════════════════════════════ */
+const GoalHeader = ({ goal, contributions, tone, onArchive, canArchive, onRename }) => {
+  const startDate    = goal.tracking_start_date;
+  const startBalance = goal.tracking_start_balance || 0;
+  const realBal  = calcReal(startBalance, contributions);
+  const expBal   = calcExpected(startDate, startBalance, goal);
+  const realPct  = Math.min(100,(realBal/goal.goal_amount)*100);
+  const expPct   = Math.min(100,(expBal/goal.goal_amount)*100);
+  const gap      = realBal - expBal;
+  const toneColor = { green:css('--success'), amber:css('--warning'), red:css('--danger') }[tone];
+  const toneCopy  = { green:'En camino', amber:'Atrás un poco', red:'Hay que ajustar' }[tone];
+  const startLabel = (() => {
+    const [y,m] = startDate.split('-').map(Number);
+    return new Date(y,m-1).toLocaleDateString('es-CO',{month:'short',year:'numeric'});
+  })();
+  return (
+    <Card padding={22} hero>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, gap:12 }}>
+        <div style={{ minWidth:0 }}>
+          <Label style={{ marginBottom:6 }}>{goal.goal_purpose} · desde {startLabel}</Label>
+          <InlineTitle value={goal.title} onSave={(t) => onRename(goal.id, t)}
+            style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.03em', lineHeight:1.2 }} />
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          <HealthPill tone={tone}>{toneCopy}</HealthPill>
+          {canArchive && (
+            <button onClick={onArchive} title="Archivar meta" style={{
+              background:'transparent', border:`1px solid ${css('--border')}`,
+              color:css('--muted-2'), width:30, height:30, borderRadius:8, cursor:'pointer',
+              padding:0, display:'inline-flex', alignItems:'center', justifyContent:'center',
+              transition:'all 0.18s ease',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="5" rx="1"/>
+                <path d="M4 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"/>
+                <line x1="10" y1="13" x2="14" y2="13"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8 }}>
+        <Mono size={20} weight={600}>{fmtCOP(realBal)}</Mono>
+        <Mono size={12} color={css('--muted-2')}>de {fmtCOP(goal.goal_amount)} · {realPct.toFixed(0)}%</Mono>
+      </div>
+      <div style={{ height:10, background:css('--surface-2'), border:`1px solid ${css('--border')}`,
+        borderRadius:999, position:'relative', overflow:'hidden', marginBottom:8 }}>
+        <div style={{ position:'absolute', left:0, top:0, bottom:0, width:`${realPct}%`, background:toneColor, transition:'width .3s ease' }} />
+        {Math.abs(expPct-realPct)>0.5 && (
+          <div style={{ position:'absolute', left:`${Math.min(expPct,99)}%`, top:-2, bottom:-2, width:2, background:css('--text'), opacity:0.4 }} />
+        )}
+      </div>
+      <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:css('--muted-2') }}>
+        <span>Plan a hoy: {fmtCOP(expBal)} ({expPct.toFixed(0)}%)</span>
+        <span style={{ color:toneColor, fontWeight:600 }}>
+          {gap>=0?`+${fmtAbbrev(gap)} adelante`:`${fmtAbbrev(gap)} atrás`}
+        </span>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginTop:16 }}>
+        {[{ label:'Meta', value:fmtCOP(goal.goal_amount) },
+          { label:'Aporte planeado', value:fmtCOP(goal.monthly_add)+'/mes' },
+          { label:'Plazo', value:`${goal.goal_years} años` }
+        ].map(t => (
+          <div key={t.label} style={{ background:css('--surface-2'), border:`1px solid ${css('--border')}`, borderRadius:12, padding:'10px 12px' }}>
+            <Label style={{ marginBottom:4 }}>{t.label}</Label>
+            <Mono size={13} weight={600}>{t.value}</Mono>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   MONTHLY TRACKER
+═══════════════════════════════════════════════════ */
+const MonthlyTracker = ({ goal, contributions, onLog, onMarkPaid }) => {
+  const monthKey  = currentMonthKey();
+  const contrib   = contributions.find(c=>c.month===monthKey);
+  const logged    = contrib?.amount||0;
+  const target    = goal.monthly_add;
+  const pct       = target>0?Math.min(100,(logged/target)*100):0;
+  const remaining = Math.max(0,target-logged);
+  const monthName = new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+  const tone      = pct>=100?css('--success'):pct>=60?css('--accent'):css('--warning');
+  return (
+    <Card padding={18} style={{ background:`linear-gradient(135deg,${css('--surface')},${css('--surface-2')})`, borderColor:css('--accent-border') }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:10 }}>
+        <Label>Este mes · {monthName}</Label>
+        <Mono size={11} color={css('--muted-2')}>{Math.round(pct)}%</Mono>
+      </div>
+      <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:10 }}>
+        <Mono size={22} weight={600}>{fmtCOP(logged)}</Mono>
+        <span style={{ color:css('--muted-2'), fontSize:13 }}>/ {fmtCOP(target)}</span>
+      </div>
+      <div style={{ height:6, background:css('--surface-2'), border:`1px solid ${css('--border')}`, borderRadius:999, overflow:'hidden', marginBottom:14 }}>
+        <div style={{ width:`${pct}%`, height:'100%', background:tone, transition:'width .3s ease' }} />
+      </div>
+      {pct>=100
+        ? <p style={{ fontSize:12, color:css('--success'), margin:'0 0 12px' }}>✓ Aporte de este mes completo.</p>
+        : <p style={{ fontSize:12, color:css('--muted'), margin:'0 0 12px' }}>
+            {remaining>0?<>Faltan <strong style={{ color:css('--text') }}>{fmtCOP(remaining)}</strong> para completar el aporte planeado.</>
+              :'Aún no has registrado el aporte de este mes.'}
+          </p>
+      }
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        <button onClick={onLog} style={{ flex:2, minWidth:130, background:css('--accent'), border:'none', color:'#fff',
+          fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, borderRadius:12, padding:'10px 14px', cursor:'pointer' }}>
+          {contrib?'✎ Editar aporte':'+ Registrar aporte'}
+        </button>
+        {!contrib && <Button kind="ghost" onClick={onMarkPaid}>Saldé el planeado</Button>}
+      </div>
+    </Card>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   LOG MODAL
+═══════════════════════════════════════════════════ */
+const LogContributionModal = ({ goal, contributions, saving, onClose, onSubmit }) => {
+  const monthKey = currentMonthKey();
+  const existing = contributions.find(c=>c.month===monthKey);
+  const [amount, setAmount] = React.useState(existing?existing.amount:goal.monthly_add);
+  const [note,   setNote]   = React.useState(existing?.note||'');
+  React.useEffect(()=>{ document.body.style.overflow='hidden'; return()=>{ document.body.style.overflow=''; }; },[]);
+  const planned = goal.monthly_add;
+  const delta   = amount-planned;
+  const monthName = new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+  const presets = [{ label:`${fmtCOP(planned)} (planeado)`, value:planned },
+    { label:fmtCOP(Math.round(planned*0.5)), value:Math.round(planned*0.5) },
+    { label:fmtCOP(Math.round(planned*1.5)), value:Math.round(planned*1.5) }];
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,18,25,0.55)', display:'grid', placeItems:'center',
+      padding:20, zIndex:100, backdropFilter:'blur(6px)' }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:css('--surface'), border:`1px solid ${css('--border')}`,
+        borderRadius:18, padding:24, width:'100%', maxWidth:440, boxShadow:'0 24px 60px rgba(0,0,0,0.25)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
+          <div>
+            <h2 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 4px' }}>Registrar aporte</h2>
+            <Label style={{ marginTop:0 }}>{goal.title} · {monthName}</Label>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" style={{ background:'transparent', border:`1px solid ${css('--border')}`,
+            borderRadius:10, width:30, height:30, color:css('--muted-2'), cursor:'pointer' }}>✕</button>
+        </div>
+        <Field label="Monto del aporte">
+          <CurrencyInput value={amount} onChange={setAmount} ariaLabel="Monto del aporte" />
+        </Field>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:14 }}>
+          {presets.map((p,i)=><Chip key={i} active={amount===p.value} onClick={()=>setAmount(p.value)}>{p.label}</Chip>)}
+        </div>
+        <Field label="Nota (opcional)">
+          <input value={note} onChange={e=>setNote(e.target.value)} placeholder="Bono, ahorro extra, etc."
+            style={{ background:css('--surface-2'), border:`1px solid ${css('--border')}`, borderRadius:12, padding:'10px 12px',
+              width:'100%', fontFamily:"'DM Sans',sans-serif", fontSize:13, color:css('--text'), outline:0 }} />
+        </Field>
+        {delta<0&&<div style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.32)',
+          borderRadius:12, padding:12, marginBottom:14, display:'flex', gap:10 }}>
+          <span style={{ color:css('--warning'), fontWeight:800 }}>!</span>
+          <div style={{ fontSize:12, color:css('--warning'), lineHeight:1.5 }}>Quedaste <strong>{fmtCOP(Math.abs(delta))}</strong> corto del plan. ¿Quieres re-planear después?</div>
+        </div>}
+        {delta>0&&<div style={{ background:'rgba(34,197,94,0.10)', border:'1px solid rgba(34,197,94,0.32)',
+          borderRadius:12, padding:12, marginBottom:14, display:'flex', gap:10 }}>
+          <span style={{ color:css('--success'), fontWeight:800 }}>✓</span>
+          <div style={{ fontSize:12, color:css('--success'), lineHeight:1.5 }}>Aportaste <strong>{fmtCOP(delta)}</strong> más que el plan.</div>
+        </div>}
+        <div style={{ display:'flex', gap:8 }}>
+          <Button kind="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <button onClick={()=>onSubmit({ amount, note, existingId:existing?.id||null, replan:delta<0 })} disabled={saving} style={{
+            flex:1, background:css('--accent'), border:'none', color:'#fff',
+            fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600,
+            borderRadius:12, padding:'10px 14px', cursor:saving?'default':'pointer', opacity:saving?0.6:1,
+          }}>{saving?'Guardando…':delta<0?'Registrar y re-planear →':'Registrar aporte'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   REPLAN MODAL
+═══════════════════════════════════════════════════ */
+function InlineTitle({ value, onSave, style = {} }) {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState(value);
+  const [hover, setHover] = React.useState(false);
+  const inputRef = React.useRef(null);
+  React.useEffect(() => { setDraft(value); }, [value]);
+  React.useEffect(() => {
+    if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
+  }, [editing]);
+  const commit = () => {
+    const trimmed = draft.trim().slice(0, 48);
+    if (trimmed && trimmed !== value) onSave(trimmed);
+    else setDraft(value);
+    setEditing(false);
+  };
+  const cancel = () => { setDraft(value); setEditing(false); };
+  if (editing) {
+    return (
+      <input ref={inputRef} value={draft}
+        onChange={e => setDraft(e.target.value.slice(0, 48))}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') cancel(); }}
+        style={{ ...style, background:css('--surface-2'), border:`1px solid ${css('--accent-border')}`,
+          borderRadius:8, padding:'2px 8px', margin:'-3px -9px',
+          outline:0, color:css('--text'), minWidth:200, maxWidth:'100%',
+          fontFamily:"'DM Sans', sans-serif" }} />
+    );
+  }
+  return (
+    <span onClick={() => setEditing(true)}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      title="Click para renombrar"
+      style={{ ...style, cursor:'pointer', borderRadius:8, padding:'2px 8px', margin:'-2px -8px',
+        background: hover ? css('--surface-2') : 'transparent',
+        transition:'background 0.15s ease', display:'inline-block' }}>
+      {value}
+    </span>
+  );
+}
+
+const ArchiveModal = ({ goal, contribCount, onClose, onConfirm, busy }) => (
+  <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)',
+    backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+    <div onClick={e=>e.stopPropagation()} style={{ background:css('--surface'), border:`1px solid ${css('--border')}`,
+      borderRadius:20, padding:24, maxWidth:440, width:'100%', boxShadow:css('--shadow') }}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted'), marginBottom:6 }}>Archivar meta</div>
+      <h3 style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 12px' }}>
+        ¿Archivar <span style={{ color:css('--accent') }}>{goal.title}</span>?
+      </h3>
+      <p style={{ fontSize:13, color:css('--muted-2'), lineHeight:1.55, margin:'0 0 18px' }}>
+        Tus <strong style={{ color:css('--text') }}>{contribCount} aporte{contribCount===1?'':'s'}</strong> se conservarán intactos pero quedarán ocultos del seguimiento mensual y de la lista de metas activas.{' '}
+        Puedes restaurarla cuando quieras desde <strong style={{ color:css('--text') }}>Archivadas</strong>.
+      </p>
+      <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+        <Button kind="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
+        <Button onClick={onConfirm} disabled={busy} style={{ background:'rgba(245,158,11,0.12)',
+          border:`1px solid rgba(245,158,11,0.36)`, color:css('--warning') }}>
+          {busy ? 'Archivando…' : 'Archivar'}
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+const ReplanModal = ({ goal, contributions, onClose, onApply }) => {
+  const startBalance = goal.tracking_start_balance||0;
+  const realBal = calcReal(startBalance, contributions);
+  const expBal  = calcExpected(goal.tracking_start_date, startBalance, goal);
+  const gap     = realBal-expBal, absGap=Math.abs(gap);
+  const newMonthly   = Math.round(goal.monthly_add*(1+(absGap/(goal.goal_amount*0.4))));
+  const monthlyDelta = newMonthly-goal.monthly_add;
+  const extraMonths  = Math.round((absGap/goal.monthly_add)*1.4);
+  const newGoal      = Math.round(goal.goal_amount-absGap*0.85);
+  const options = [
+    { id:'monthly', tag:'Subir aporte',   delta:`+${fmtCOP(monthlyDelta)}/mes`, detail:`Mantienes la meta y la fecha. El aporte sube a ${fmtCOP(newMonthly)} al mes.` },
+    { id:'extend',  tag:'Extender plazo', delta:`+${extraMonths} meses`,        detail:`Mantienes el aporte. Llegas en ${goal.goal_years*12+extraMonths} meses (en lugar de ${goal.goal_years*12}).` },
+    { id:'lower',   tag:'Bajar meta',     delta:fmtCOP(newGoal-goal.goal_amount), detail:`Mantienes aporte y fecha. Meta nueva: ${fmtCOP(newGoal)}.` },
+    { id:'none',    tag:'Solo ver',       delta:'sin cambios', detail:'No cambias nada. Revisas después y decides con calma.' },
+  ];
+  const [selected, setSelected] = React.useState('monthly');
+  React.useEffect(()=>{ document.body.style.overflow='hidden'; return()=>{ document.body.style.overflow=''; }; },[]);
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,18,25,0.55)', display:'grid', placeItems:'center',
+      padding:20, zIndex:100, backdropFilter:'blur(6px)' }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:css('--surface'), border:`1px solid ${css('--border')}`,
+        borderRadius:18, padding:26, width:'100%', maxWidth:560,
+        boxShadow:'0 24px 60px rgba(0,0,0,0.25)', maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+          <Label>Re-planear · {goal.title}</Label>
+          <button onClick={onClose} style={{ background:'transparent', border:`1px solid ${css('--border')}`,
+            borderRadius:10, width:30, height:30, color:css('--muted-2'), cursor:'pointer' }}>✕</button>
+        </div>
+        <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.03em', margin:'6px 0 8px', color:gap<0?css('--warning'):css('--success') }}>
+          {gap<0?`Vas ${fmtAbbrev(absGap)} atrás del plan`:`Vas ${fmtAbbrev(absGap)} adelantado`}
+        </h2>
+        <p style={{ fontSize:13, color:css('--muted'), margin:'0 0 18px', lineHeight:1.5 }}>
+          Tu saldo real ({fmtCOP(realBal)}) está {gap<0?'por debajo':'por encima'} del proyectado para hoy ({fmtCOP(expBal)}). ¿Cómo quieres ajustar?
+        </p>
+        <div style={{ display:'grid', gap:8, marginBottom:18 }}>
+          {options.map(opt=>{
+            const active=selected===opt.id;
+            return (
+              <button key={opt.id} onClick={()=>setSelected(opt.id)} style={{
+                background:active?css('--accent-soft'):css('--surface-2'),
+                border:`${active?2:1}px solid ${active?css('--accent-border'):css('--border')}`,
+                borderRadius:14, padding:'12px 14px', cursor:'pointer', textAlign:'left',
+                display:'flex', alignItems:'center', gap:12, transition:'all .18s ease' }}>
+                <div style={{ width:18, height:18, borderRadius:999, flexShrink:0,
+                  border:`2px solid ${active?css('--accent'):css('--muted-2')}`, position:'relative' }}>
+                  {active&&<div style={{ position:'absolute', inset:3, borderRadius:999, background:css('--accent') }}/>}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', gap:8 }}>
+                    <span style={{ fontSize:14, fontWeight:700, color:active?css('--accent'):css('--text') }}>{opt.tag}</span>
+                    <Mono size={11} color={css('--muted-2')}>{opt.delta}</Mono>
+                  </div>
+                  <div style={{ fontSize:12, color:css('--muted'), marginTop:3, lineHeight:1.5 }}>{opt.detail}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <Button kind="ghost" onClick={onClose}>Cancelar</Button>
+          <button onClick={()=>onApply(selected)} style={{ flex:2, background:css('--accent'), border:'none', color:'#fff',
+            fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, borderRadius:12, padding:'10px 14px', cursor:'pointer' }}>
+            Aplicar plan ✦
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   CONTRIBUTIONS LIST
+═══════════════════════════════════════════════════ */
+const ContributionsList = ({ goal, contributions }) => {
+  const rows = buildMonthRows(goal.tracking_start_date, contributions);
+  if (!rows.length) return (
+    <Card padding={18}>
+      <Label style={{ marginBottom:10 }}>Historial de aportes</Label>
+      <p style={{ fontSize:13, color:css('--muted-2'), margin:0 }}>Aún no hay aportes registrados.</p>
+    </Card>
+  );
+  return (
+    <Card padding={0} style={{ overflow:'hidden' }}>
+      <div style={{ padding:'14px 18px', borderBottom:`1px solid ${css('--border')}`,
+        display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <Label>Historial de aportes</Label>
+        <div style={{ display:'flex', gap:16, fontSize:10, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:css('--muted') }}>
+          <span style={{ width:90, textAlign:'right' }}>Planeado</span>
+          <span style={{ width:100, textAlign:'right' }}>Real</span>
+        </div>
+      </div>
+      {rows.map((row,i)=>{
+        const isPending=row.amount===null;
+        const tone=isPending?'amber':row.amount>=goal.monthly_add?'green':row.amount===0?'red':'amber';
+        const status=isPending?'Pendiente':row.amount>=goal.monthly_add?'Saldado':row.amount===0?'Omitido':'Parcial';
+        return (
+          <div key={row.key} className="contrib-row" style={{ display:'grid', gridTemplateColumns:'90px 1fr 120px 110px',
+            alignItems:'center', padding:'12px 18px', borderBottom:i<rows.length-1?`1px solid ${css('--border')}`:'none', fontSize:13 }}>
+            <span style={{ color:css('--muted'), fontSize:12 }}>{row.month}</span>
+            <span><HealthPill tone={tone}>{status}</HealthPill></span>
+            <Mono size={12} color={css('--muted-2')} className="contrib-planned" style={{ textAlign:'right' }}>{fmtCOP(goal.monthly_add)}</Mono>
+            <Mono size={13} weight={600} style={{ textAlign:'right' }}>
+              {isPending?<span style={{ color:css('--muted') }}>—</span>:fmtCOP(row.amount)}
+            </Mono>
+          </div>
+        );
+      })}
+    </Card>
+  );
+};
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+const ToastBar = ({ message, onDismiss }) => !message?null:(
+  <div style={{ position:'fixed', bottom:24, left:'50%', transform:'translateX(-50%)',
+    background:css('--text'), color:css('--surface'), padding:'12px 18px', borderRadius:12,
+    fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:12,
+    zIndex:200, boxShadow:'0 12px 32px rgba(0,0,0,0.3)', whiteSpace:'nowrap' }}>
+    <span style={{ color:css('--success') }}>✓</span>{message}
+    <button onClick={onDismiss} style={{ background:'transparent', border:'none', color:'inherit', cursor:'pointer', opacity:0.6 }}>✕</button>
+  </div>
+);
+
+/* ═══════════════════════════════════════════════════
+   SEGUIMIENTO VIEW (plan view content)
+═══════════════════════════════════════════════════ */
+function ArchivedView({ goals, loaded, onUnarchive, isMobile }) {
+  if (!loaded) return <Spinner text="Cargando metas archivadas…" />;
+  if (goals.length === 0) return (
+    <div style={{ padding:'60px 28px', textAlign:'center', maxWidth:480, margin:'0 auto' }}>
+      <div style={{ fontSize:36, marginBottom:12, color:css('--muted') }}>⊡</div>
+      <h3 style={{ fontSize:18, fontWeight:700, letterSpacing:'-0.02em', margin:'0 0 8px' }}>Sin metas archivadas</h3>
+      <p style={{ fontSize:13, color:css('--muted-2'), lineHeight:1.55, margin:0 }}>
+        Cuando archives una meta, aparecerá aquí. Sus aportes y notas se conservan intactos.
+      </p>
+    </div>
+  );
+  return (
+    <div style={{ padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:1120, margin:'0 auto' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {goals.map(g => {
+          const archDate = new Date(g.archived_at).toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' });
+          return (
+            <Card key={g.id} padding={18}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap' }}>
+                <div style={{ minWidth:0, flex:1 }}>
+                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted'), marginBottom:4 }}>Archivada el {archDate}</div>
+                  <div style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.02em', marginBottom:4 }}>{g.title}</div>
+                  <div style={{ fontSize:12, color:css('--muted-2') }}>
+                    {fmtCOP(g.goal_amount)} · {fmtCOP(g.monthly_add)}/mes · {g.goal_years} años
+                  </div>
+                </div>
+                <Button onClick={()=>onUnarchive(g)}>Restaurar</Button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SegView({ goals, activeGoalId, onSelectGoal, contributions, tone, gap, showReminder, saving,
+  onLog, onMarkPaid, onOtherAmount, onLater, onReplan, onArchive, onRename, isMobile }) {
+  const goal = goals.find(g=>g.id===activeGoalId);
+  if (!goal) return null;
+  if (!goal.tracking_start_date) return (
+    <div style={{ padding:'40px 28px', color:css('--muted'), fontSize:13 }}>Inicializando seguimiento…</div>
+  );
+  return (
+    <div style={{ padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:1120, margin:'0 auto' }}>
+      {showReminder && !contributions.some(c=>c.month===currentMonthKey()) && (
+        <MonthlyReminder goal={goal}
+          onConfirm={()=>onLog({ amount:goal.monthly_add, note:'', existingId:null, replan:false, direct:true })}
+          onOther={onOtherAmount} onLater={onLater} />
+      )}
+      <div className="plan-grid" style={{ display:'grid', gridTemplateColumns:isMobile?'1fr':'1.2fr 1fr', gap:14, marginBottom:14 }}>
+        <GoalHeader goal={goal} contributions={contributions} tone={tone}
+          canArchive={goals.length > 1} onArchive={()=>onArchive(goal)}
+          onRename={onRename} />
+        <MonthlyTracker goal={goal} contributions={contributions} onLog={onLog} onMarkPaid={()=>onLog({ amount:goal.monthly_add, note:'', existingId:null, replan:false, direct:true })} />
+      </div>
+      {gap<0&&(
+        <Card padding={16} style={{ background:'rgba(245,158,11,0.08)', borderColor:'rgba(245,158,11,0.32)',
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, marginBottom:16, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <span style={{ width:32, height:32, borderRadius:999, background:'rgba(245,158,11,0.18)',
+              color:css('--warning'), display:'grid', placeItems:'center', fontWeight:800, flexShrink:0 }}>!</span>
+            <div>
+              <div style={{ fontSize:14, fontWeight:700, color:css('--warning') }}>Vas {fmtAbbrev(Math.abs(gap))} atrás del plan</div>
+              <div style={{ fontSize:12, color:css('--muted'), marginTop:2 }}>Re-planea para mantener tu meta o ajusta el plan.</div>
+            </div>
+          </div>
+          <button onClick={onReplan} style={{ background:css('--warning'), border:'none', color:'#fff',
+            fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600,
+            borderRadius:12, padding:'10px 16px', cursor:'pointer', whiteSpace:'nowrap' }}>Re-planear →</button>
+        </Card>
+      )}
+      <ContributionsList goal={goal} contributions={contributions} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   SPINNER / ERROR
+═══════════════════════════════════════════════════ */
+const Spinner = ({ text='Cargando…' }) => (
+  <div style={{ height:'60vh', display:'grid', placeItems:'center', color:css('--muted'), fontSize:13 }}>{text}</div>
+);
+const ErrorState = ({ message, onRetry }) => (
+  <div style={{ textAlign:'center', padding:'80px 40px' }}>
+    <div style={{ fontSize:32, marginBottom:12, color:css('--danger') }}>⚠</div>
+    <p style={{ fontSize:14, color:css('--muted-2'), maxWidth:320, margin:'0 auto 20px' }}>{message}</p>
+    <Button onClick={onRetry}>Reintentar</Button>
+  </div>
+);
+
+/* ═══════════════════════════════════════════════════
+   APP ROOT
+═══════════════════════════════════════════════════ */
+function App() {
+  const bp = useBreakpoint();
+  const isMobile = bp==='mobile', isTablet=bp==='tablet';
+
+  const [theme, setTheme] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(APP_STORAGE_KEY)||'{}').theme||'light'; } catch { return 'light'; }
+  });
+  React.useEffect(()=>{ document.body.setAttribute('data-theme',theme); },[theme]);
+  const toggleTheme = () => setTheme(t=>t==='dark'?'light':'dark');
+
+  // Sidebar state
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  React.useEffect(()=>{ setSidebarCollapsed(isTablet); },[isTablet]);
+
+  // View / nav
+  const [view, setView] = React.useState(() => {
+    const v = new URLSearchParams(location.search).get('view');
+    return (v==='arch'||v==='hist') ? v : 'seg';
+  });
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [showWhatsNew, setShowWhatsNew] = React.useState(false);
+  const handleNav = (v) => {
+    if (v==='more'){setMoreOpen(true);return;}
+    if (v==='news'){setShowWhatsNew(true);return;}
+    setView(v);
+  };
+
+  // Auth
+  const [user, setUser] = React.useState(null);
+  const [phase, setPhase] = React.useState('auth');
+  const [errorMsg, setErrorMsg] = React.useState('');
+  React.useEffect(()=>{
+    db.auth.getSession().then(({ data:{ session } })=>{
+      if (!session){ window.location.href='auth.html'; return; }
+      setUser(session.user);
+    });
+    const { data:{ subscription } } = db.auth.onAuthStateChange((event,session)=>{
+      if (event==='SIGNED_OUT'){ window.location.href='auth.html'; return; }
+      if (session) setUser(session.user);
+    });
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  // Goals
+  const [goals, setGoals] = React.useState([]);
+  const [activeGoalId, setActiveGoalId] = React.useState(null);
+  const fetchGoals = React.useCallback(async (uid) => {
+    setPhase('loading');
+    try {
+      const data = await loadGoals(uid);
+      setGoals(data);
+      if (data.length>0) setActiveGoalId(id=>id&&data.find(g=>g.id===id)?id:data[0].id);
+      setPhase('ready');
+    } catch(e) {
+      setErrorMsg('No se pudieron cargar las metas. Verifica tu conexión.');
+      setPhase('error');
+    }
+  },[]);
+  React.useEffect(()=>{ if (user) fetchGoals(user.id); },[user]);
+
+  // Contributions
+  const [contributions, setContributions] = React.useState([]);
+  React.useEffect(()=>{
+    if (!activeGoalId) return;
+    const goal = goals.find(g=>g.id===activeGoalId);
+    if (!goal) return;
+    if (!goal.tracking_start_date) {
+      const startDate=currentMonthKey(), startBalance=goal.current_val||0;
+      initTrackingStart(goal.id, startDate, startBalance);
+      setGoals(prev=>prev.map(g=>g.id===goal.id?{...g,tracking_start_date:startDate,tracking_start_balance:startBalance}:g));
+    }
+    loadContributions(activeGoalId)
+      .then(data=>setContributions(data))
+      .catch(e=>console.warn('[supabase] contributions:',e.message));
+  },[activeGoalId, goals.length]);
+
+  // Derived
+  const goal = goals.find(g=>g.id===activeGoalId);
+  const startBalance = goal?.tracking_start_balance||0;
+  const tone = React.useMemo(()=>{
+    if (!goal?.tracking_start_date) return 'amber';
+    const real=calcReal(startBalance,contributions);
+    const exp=calcExpected(goal.tracking_start_date,startBalance,goal);
+    if (real>=exp) return 'green';
+    if (real>=exp*0.85) return 'amber';
+    return 'red';
+  },[goal,startBalance,contributions]);
+  const gap = goal?.tracking_start_date
+    ? calcReal(startBalance,contributions)-calcExpected(goal.tracking_start_date,startBalance,goal)
+    : 0;
+
+  // Modals / UI
+  const [showLog,      setShowLog]      = React.useState(false);
+  const [showReplan,   setShowReplan]   = React.useState(false);
+  const [showReminder, setShowReminder] = React.useState(true);
+  const [saving,       setSaving]       = React.useState(false);
+  const [toast,        setToast]        = React.useState(null);
+  const [archiveTarget,setArchiveTarget]= React.useState(null);
+  const [archiveCount, setArchiveCount] = React.useState(0);
+  const [archiveBusy,  setArchiveBusy]  = React.useState(false);
+  const [archivedGoals,setArchivedGoals]= React.useState([]);
+  const [archivedLoaded,setArchivedLoaded]= React.useState(false);
+  const showToast = (msg)=>{ setToast(msg); setTimeout(()=>setToast(null),3500); };
+
+  const handleArchive = async (g) => {
+    setArchiveTarget(g);
+    setArchiveCount(0);
+    const c = await countContributions(g.id);
+    setArchiveCount(c);
+  };
+
+  React.useEffect(() => {
+    if (view==='arch' && user && !archivedLoaded) {
+      loadArchivedGoals(user.id)
+        .then(data => { setArchivedGoals(data); setArchivedLoaded(true); })
+        .catch(e => console.warn('[supabase] archived:', e.message));
+    }
+  }, [view, user, archivedLoaded]);
+
+  const handleRename = async (goalId, title) => {
+    const prevGoals = goals;
+    setGoals(g => g.map(x => x.id === goalId ? { ...x, title } : x));
+    try {
+      await updateGoalTitle(goalId, title);
+      showToast('Meta renombrada');
+    } catch(e) {
+      setGoals(prevGoals); // revert
+      showToast('Error al renombrar.');
+      console.error(e);
+    }
+  };
+
+  const handleUnarchive = async (g) => {
+    try {
+      await unarchiveGoal(g.id);
+      setArchivedGoals(prev => prev.filter(x => x.id !== g.id));
+      setGoals(prev => [...prev, { ...g, archived_at:null }]);
+      setActiveGoalId(g.id);
+      setView('seg');
+      setShowReminder(true);
+      showToast(`Meta "${g.title}" restaurada`);
+    } catch(e) { showToast('Error al restaurar.'); console.error(e); }
+  };
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiveBusy(true);
+    try {
+      await archiveGoal(archiveTarget.id);
+      const remaining = goals.filter(g => g.id !== archiveTarget.id);
+      setGoals(remaining);
+      setArchivedLoaded(false); // force reload next time vista is opened
+      if (archiveTarget.id === activeGoalId && remaining.length > 0) setActiveGoalId(remaining[0].id);
+      showToast(`Meta "${archiveTarget.title}" archivada`);
+      setArchiveTarget(null);
+    } catch(e) { showToast('Error al archivar.'); console.error(e); }
+    finally { setArchiveBusy(false); }
+  };
+
+  const handleLog = async ({ amount, note, existingId, replan, direct }) => {
+    if (direct) {
+      // quick log without opening modal
+      setSaving(true);
+      try {
+        const month=currentMonthKey();
+        const newId=await upsertContribution(user.id,goal.id,month,amount,note||'',existingId||null);
+        setContributions(prev=>{
+          const filtered=prev.filter(c=>c.month!==month);
+          return [{id:newId,month,amount,note:note||''},...filtered].sort((a,b)=>b.month.localeCompare(a.month));
+        });
+        setShowReminder(false);
+        showToast(`Aporte de ${fmtCOP(amount)} registrado`);
+      } catch(e){ showToast('Error al guardar.'); } finally { setSaving(false); }
+      return;
+    }
+    setShowLog(false);
+    if (!amount && !note) { setShowLog(true); return; }
+    setSaving(true);
+    try {
+      const month=currentMonthKey();
+      const newId=await upsertContribution(user.id,goal.id,month,amount,note||'',existingId||null);
+      setContributions(prev=>{
+        const filtered=prev.filter(c=>c.month!==month);
+        return [{id:newId,month,amount,note:note||''},...filtered].sort((a,b)=>b.month.localeCompare(a.month));
+      });
+      setShowReminder(false);
+      if (replan){ setTimeout(()=>setShowReplan(true),250); }
+      else showToast(`Aporte de ${fmtCOP(amount)} registrado`);
+    } catch(e){ showToast('Error al guardar.'); console.error(e); } finally { setSaving(false); }
+  };
+  const handleApply = (opt)=>{
+    setShowReplan(false);
+    const labels={ monthly:'Aporte actualizado', extend:'Plazo extendido', lower:'Meta ajustada', none:'Plan sin cambios' };
+    showToast(labels[opt]);
+  };
+
+  // Header copy per view
+  const headerMap = {
+    seg:     { sub:'Seguimiento de aportes', title: goal?.title||'Mis metas' },
+    hist:    { sub:'Histórico', title:'Todas tus metas' },
+    arch:    { sub:'Archivadas', title:'Metas archivadas' },
+    news:    { sub:'Novedades', title:'Qué hay de nuevo' },
+
+  };
+  const header = headerMap[view]||headerMap.seg;
+
+  // Loading / error screens
+  const mainContent = () => {
+    if (phase==='auth'||phase==='loading') return <Spinner text={phase==='auth'?'Verificando sesión…':'Cargando metas…'} />;
+    if (phase==='error') return <ErrorState message={errorMsg} onRetry={()=>fetchGoals(user?.id)} />;
+    if (view==='seg') return (
+      <SegView goals={goals} activeGoalId={activeGoalId} onSelectGoal={id=>{setActiveGoalId(id);setShowReminder(true);}}
+        contributions={contributions} tone={tone} gap={gap}
+        showReminder={showReminder} saving={saving}
+        onLog={()=>setShowLog(true)}
+        onMarkPaid={()=>handleLog({ amount:goal?.monthly_add||0, note:'', existingId:null, replan:false, direct:true })}
+        onOtherAmount={()=>{setShowReminder(false);setShowLog(true);}}
+        onLater={()=>setShowReminder(false)}
+        onReplan={()=>setShowReplan(true)}
+        onArchive={handleArchive}
+        onRename={handleRename}
+        isMobile={isMobile}
+      />
+    );
+    if (view==='hist')    return <ComingSoon icon="≡" title="Histórico" body="Todas tus metas en un timeline navegable: activas, completadas y archivadas." />;
+    if (view==='arch')    return <ArchivedView goals={archivedGoals} loaded={archivedLoaded} onUnarchive={handleUnarchive} isMobile={isMobile} />;
+    return null;
+  };
+
+  return (
+    <div style={{ display:'flex', minHeight:'100svh', background:css('--bg') }}>
+      {/* Sidebar — desktop + tablet */}
+      {!isMobile && (
+        <Sidebar active={view} onNav={handleNav}
+          collapsed={sidebarCollapsed} onToggleCollapse={()=>setSidebarCollapsed(c=>!c)}
+          theme={theme} onToggleTheme={toggleTheme} user={user}
+          goals={goals.map(g => ({ id:g.id, title:g.title,
+            tone: statusFromProjection(projectedValue(g), g.goal_amount) }))}
+          activeGoalId={activeGoalId}
+          onSelectGoal={id => { setActiveGoalId(id); setShowReminder(true); }} />
+      )}
+
+      {/* Main column */}
+      <main style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+        {isMobile ? (
+          <MobileTopBar title={header.title} subtitle={header.sub} />
+        ) : (
+          <ContextHeader title={header.title} subtitle={header.sub}
+            theme={theme} onToggleTheme={toggleTheme}
+            collapsed={sidebarCollapsed} compact={isTablet} />
+        )}
+        <div style={{ flex:1 }}>
+          {mainContent()}
+        </div>
+      </main>
+
+      {/* Mobile chrome */}
+      {isMobile && (
+        <>
+          <BottomNav active={view} onNav={handleNav} />
+          <MoreSheet open={moreOpen} onClose={()=>setMoreOpen(false)}
+            theme={theme} onToggleTheme={toggleTheme} user={user}
+            onWhatsNew={()=>setShowWhatsNew(true)} />
+        </>
+      )}
+
+      {/* Modals */}
+      {showLog && goal && (
+        <LogContributionModal goal={goal} contributions={contributions} saving={saving}
+          onClose={()=>setShowLog(false)} onSubmit={handleLog} />
+      )}
+      {showReplan && goal?.tracking_start_date && (
+        <ReplanModal goal={goal} contributions={contributions}
+          onClose={()=>setShowReplan(false)} onApply={handleApply} />
+      )}
+
+      <ToastBar message={toast} onDismiss={()=>setToast(null)} />
+      {showWhatsNew && <WhatsNewModal onClose={()=>setShowWhatsNew(false)} />}
+      {archiveTarget && (
+        <ArchiveModal goal={archiveTarget} contribCount={archiveCount}
+          busy={archiveBusy}
+          onClose={()=>!archiveBusy && setArchiveTarget(null)}
+          onConfirm={confirmArchive} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
