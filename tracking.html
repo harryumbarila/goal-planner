@@ -394,8 +394,8 @@ function Sidebar({ active, onNav, collapsed, onToggleCollapse, theme, onToggleTh
       <div style={{ padding:collapsed?'16px 8px':'16px 14px 12px',
         display:'flex', alignItems:'center', justifyContent:collapsed?'center':'space-between' }}>
         {!collapsed && (
-          <a href="index.html" style={{ display:'flex', alignItems:'baseline', gap:6, textDecoration:'none' }}>
-            <span style={{ color:css('--accent'), fontSize:18 }}>✦</span>
+          <a href="index.html" aria-label="Goal Planner" style={{ display:'flex', alignItems:'baseline', gap:6, textDecoration:'none' }}>
+            <span aria-hidden="true" style={{ color:css('--accent'), fontSize:18 }}>✦</span>
             <span style={{ fontWeight:700, fontSize:15, letterSpacing:'-0.03em' }}>
               <span style={{ color:css('--accent') }}>Goal</span>
               <span style={{ color:css('--text') }}> planner</span>
@@ -403,7 +403,7 @@ function Sidebar({ active, onNav, collapsed, onToggleCollapse, theme, onToggleTh
           </a>
         )}
         {collapsed && (
-          <a href="index.html" style={{ textDecoration:'none', color:css('--accent'), fontSize:20 }}>✦</a>
+          <a href="index.html" aria-label="Goal Planner" style={{ textDecoration:'none', color:css('--accent'), fontSize:20 }}>✦</a>
         )}
         {!collapsed && (
           <button onClick={onToggleCollapse} aria-label="Colapsar sidebar" style={{
@@ -520,7 +520,7 @@ function MobileTopBar({ title, subtitle }) {
       backdropFilter:'blur(6px)',
     }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
-        <a href="index.html" style={{ color:css('--accent'), fontSize:18, flexShrink:0, textDecoration:'none' }}>✦</a>
+        <a href="index.html" aria-label="Goal Planner" style={{ color:css('--accent'), fontSize:18, flexShrink:0, textDecoration:'none' }}>✦</a>
         <div style={{ minWidth:0 }}>
           <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted'), lineHeight:1 }}>{subtitle}</div>
           <h1 style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',

@@ -281,11 +281,11 @@ const SliderInput = ({ value, min, max, step = 1, onChange, ariaLabel }) => {
 
 /* Wordmark */
 const Wordmark = ({ size = 18 }) => (
-  <div style={{
+  <div role="img" aria-label="Goal Planner" style={{
     display: 'inline-flex', alignItems: 'baseline', gap: 5,
     fontWeight: 700, fontSize: size, letterSpacing: '-0.02em', color: css('--text'),
   }}>
-    <span style={{ color: css('--accent'), fontSize: size + 4, lineHeight: 1, transform: 'translateY(2px)', display: 'inline-block' }}>✦</span>
+    <span aria-hidden="true" style={{ color: css('--accent'), fontSize: size + 4, lineHeight: 1, transform: 'translateY(2px)', display: 'inline-block' }}>✦</span>
     <span style={{ color: css('--accent') }}>Goal</span>
     <span>planner</span>
   </div>
@@ -506,12 +506,13 @@ const SplitLayout = ({ vw, narrative, form }) => {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: '100svh', gap: 0 }}>
         <div style={{
+          minWidth: 0,
           padding: '40px 48px',
           background: `linear-gradient(135deg, ${css('--surface-2')}, ${css('--surface-3')})`,
           borderRight: `1px solid ${css('--border')}`,
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
         }}>{narrative}</div>
-        <div style={{ padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ minWidth: 0, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {form}
         </div>
       </div>
@@ -538,7 +539,7 @@ const Narrative = ({ vw }) => {
       {!compact && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Wordmark size={20} />
-          <VersionPill>✦ v1.4 · ahora</VersionPill>
+          <VersionPill>✦ v1.5 · ahora</VersionPill>
         </div>
       )}
       <div>

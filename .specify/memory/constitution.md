@@ -14,7 +14,7 @@ The app is built for Colombian Pesos and Spanish-speaking users. Money inputs mu
 
 ### III. Zero-Friction Deploy
 
-Deployment is a static file drop. `python -m http.server 3000` must be enough to run the app locally and Netlify's default static hosting must be enough in production. External services (Supabase) are allowed as CDN-loaded SDKs with no build step; credentials are public anon keys committed to `supabase-config.js` (RLS enforces row-level security). Any feature that requires a private server process or a secret env-var breaks this principle.
+Deployment is a static file drop. `python -m http.server 3000` must be enough to run the app locally and Vercel's default static hosting (zero-config, repository root, no build command) must be enough in production. External services (Supabase) are allowed as CDN-loaded SDKs with no build step; credentials are public anon keys committed to `supabase-config.js` (RLS enforces row-level security). Any feature that requires a private server process or a secret env-var breaks this principle.
 
 ### IV. Responsive First
 
@@ -61,4 +61,4 @@ This constitution supersedes ad-hoc conventions. Amendments require:
 
 All changes must verify compliance before being applied. Complexity must be justified against Principles I and III.
 
-**Version**: 1.1.0 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-05-05
+**Version**: 1.1.1 | **Ratified**: 2026-04-22 | **Last Amended**: 2026-05-12
