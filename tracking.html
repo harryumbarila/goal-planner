@@ -1253,13 +1253,24 @@ function App() {
     if (!activeGoalId) return;
     const goal = goals.find(g=>g.id===activeGoalId);
     if (!goal) return;
-    if (!goal.tracking_start_date) {
-      const startDate=currentMonthKey(), startBalance=goal.current_val||0;
-      initTrackingStart(goal.id, startDate, startBalance);
-      setGoals(prev=>prev.map(g=>g.id===goal.id?{...g,tracking_start_date:startDate,tracking_start_balance:startBalance}:g));
-    }
     loadContributions(activeGoalId)
-      .then(data=>setContributions(data))
+      .then(data=>{
+        setContributions(data);
+        // While there are no logged contributions, keep the tracking baseline
+        // synced with the planner so the two views never disagree. Once the
+        // first contribution is logged, the baseline freezes as a historical anchor.
+        if (data.length === 0) {
+          const startDate = currentMonthKey(), startBalance = goal.current_val || 0;
+          if (goal.tracking_start_balance !== startBalance || goal.tracking_start_date !== startDate) {
+            initTrackingStart(goal.id, startDate, startBalance);
+            setGoals(prev=>prev.map(g=>g.id===goal.id?{...g,tracking_start_date:startDate,tracking_start_balance:startBalance}:g));
+          }
+        } else if (!goal.tracking_start_date) {
+          const startDate = currentMonthKey(), startBalance = goal.current_val || 0;
+          initTrackingStart(goal.id, startDate, startBalance);
+          setGoals(prev=>prev.map(g=>g.id===goal.id?{...g,tracking_start_date:startDate,tracking_start_balance:startBalance}:g));
+        }
+      })
       .catch(e=>console.warn('[supabase] contributions:',e.message));
   },[activeGoalId, goals.length]);
 
