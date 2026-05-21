@@ -926,23 +926,18 @@ const loadInitialState = () => {
   };
 };
 
-const syncUrlState = (state) => {
-  if (!state.goals.length || !state.onboardingComplete) return;
-  const activeGoal = state.goals.find((goal) => goal.id === state.activeGoalId) || state.goals[0];
-  const params = new URLSearchParams();
-  params.set('theme', state.theme);
-  params.set('active', activeGoal.id);
-  params.set('goal', String(roundMoney(activeGoal.goalAmount)));
-  params.set('years', String(activeGoal.goalYears));
-  params.set('monthly', String(roundMoney(activeGoal.monthlyAdd)));
-  params.set('current', String(roundMoney(activeGoal.currentVal)));
-  params.set('return', String(Number(activeGoal.expectedReturn.toFixed(2))));
-  params.set('purpose', activeGoal.goalPurpose);
-  params.set('title', activeGoal.title);
-  params.set('goals', JSON.stringify(state.goals.map(serializeGoal)));
-  const nextUrl = window.location.pathname + '?' + params.toString();
-  window.history.replaceState({}, '', nextUrl);
-};
+const isUUID = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+const goalToRow = (g, userId) => ({
+  id: g.id,
+  user_id: userId,
+  title: g.title,
+  goal_purpose: g.goalPurpose,
+  current_val:  Math.round(g.currentVal),
+  monthly_add:  Math.round(g.monthlyAdd),
+  goal_amount:  Math.round(g.goalAmount),
+  expected_return: g.expectedReturn,
+  goal_years:   g.goalYears,
+});
 
 const statusFromProjection = (finalVal, goal) => {
   if (finalVal >= goal) return 'green';
@@ -2644,14 +2639,20 @@ function App() {
     db.auth.getSession().then(({ data: { session } }) => {
       if (!session) { window.location.href = 'auth.html'; return; } // keep splash during redirect
       setUser(session.user);
+      flushRef.current.token = session.access_token;
       removeSplash();
     }).catch(() => removeSplash());
     const { data: { subscription } } = db.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') { window.location.href = 'auth.html'; return; }
-      if (session) setUser(session.user);
+      if (session) { setUser(session.user); flushRef.current.token = session.access_token; }
     });
     sub = subscription;
     return () => { if (sub) sub.unsubscribe(); };
+  }, []);
+
+  // Strip onboarding handoff params from the URL once consumed (keeps URLs short)
+  React.useEffect(() => {
+    if (window.location.search) window.history.replaceState({}, '', window.location.pathname);
   }, []);
 
   // Fetch goals from Supabase once on user load. Supabase wins over localStorage.
@@ -2702,33 +2703,44 @@ function App() {
     } catch (error) {
       console.warn('No se pudo guardar localStorage:', error);
     }
-    syncUrlState(appState);
-    // Background sync to Supabase (debounced 2s, fire-and-forget)
+    // Background sync to Supabase (debounced, fire-and-forget)
     if (typeof db !== 'undefined' && user) {
       const t = window.setTimeout(async () => {
         try {
-          const isUUID = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
-          const goalsToSync = appState.goals.filter((g) => isUUID(g.id));
-          if (!goalsToSync.length) return;
-          await db.from('goals').upsert(
-            goalsToSync.map((g) => ({
-              id: g.id,
-              user_id: user.id,
-              title: g.title,
-              goal_purpose: g.goalPurpose,
-              current_val:  Math.round(g.currentVal),
-              monthly_add:  Math.round(g.monthlyAdd),
-              goal_amount:  Math.round(g.goalAmount),
-              expected_return: g.expectedReturn,
-              goal_years:   g.goalYears,
-            })),
-            { onConflict: 'id' }
-          );
+          const rows = appState.goals.filter((g) => isUUID(g.id)).map((g) => goalToRow(g, user.id));
+          if (!rows.length) return;
+          await db.from('goals').upsert(rows, { onConflict: 'id' });
         } catch(e) { console.warn('[supabase] sync failed:', e.message); }
-      }, 2000);
+      }, 800);
       return () => window.clearTimeout(t);
     }
   }, [appState, user]);
+
+  // Reliable flush to Supabase on navigation / tab close (keepalive survives unload)
+  const flushRef = React.useRef({ goals: [], userId: null, token: null });
+  React.useEffect(() => { flushRef.current = { ...flushRef.current, goals: appState.goals, userId: user?.id }; }, [appState.goals, user]);
+  React.useEffect(() => {
+    const flush = () => {
+      const { goals, userId, token } = flushRef.current;
+      if (!userId || !token) return;
+      const rows = goals.filter((g) => isUUID(g.id)).map((g) => goalToRow(g, userId));
+      if (!rows.length) return;
+      try {
+        fetch(`${SUPABASE_URL}/rest/v1/goals?on_conflict=id`, {
+          method: 'POST', keepalive: true,
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal',
+          },
+          body: JSON.stringify(rows),
+        });
+      } catch (e) { /* best-effort */ }
+    };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, []);
 
   const activeGoal = appState.goals.find((goal) => goal.id === appState.activeGoalId) || appState.goals[0];
 
