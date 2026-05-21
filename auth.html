@@ -479,13 +479,13 @@ const LiveProjection = ({ height = 180 }) => {
 /* ═══════════════════════════════════════════════════════════════
    LAYOUT SHELLS
 ═══════════════════════════════════════════════════════════════ */
-const FormCard = ({ children, vw }) => (
+const FormCard = ({ children, vw, bare }) => (
   <div className="fade-in" style={{
-    background: css('--surface'),
-    border: `1px solid ${css('--border')}`,
+    background: bare ? 'transparent' : css('--surface'),
+    border: bare ? 'none' : `1px solid ${css('--border')}`,
     borderRadius: 18,
-    padding: vw === 'mobile' ? 22 : 28,
-    boxShadow: css('--shadow'),
+    padding: bare ? 0 : (vw === 'mobile' ? 22 : 28),
+    boxShadow: bare ? 'none' : css('--shadow'),
     width: '100%',
     maxWidth: vw === 'desktop' ? 460 : 480,
     display: 'flex', flexDirection: 'column', gap: 16,
@@ -504,16 +504,23 @@ const CenteredFrame = ({ vw, children }) => (
 const SplitLayout = ({ vw, narrative, form }) => {
   if (vw === 'desktop') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', minHeight: '100svh', gap: 0 }}>
+      <div style={{ minHeight: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
         <div style={{
-          minWidth: 0,
-          padding: '40px 48px',
-          background: `linear-gradient(135deg, ${css('--surface-2')}, ${css('--surface-3')})`,
-          borderRight: `1px solid ${css('--border')}`,
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-        }}>{narrative}</div>
-        <div style={{ minWidth: 0, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {form}
+          width: '100%', maxWidth: 1200,
+          display: 'grid', gridTemplateColumns: '1.2fr 1fr',
+          background: css('--surface'), border: `1px solid ${css('--border')}`,
+          borderRadius: 24, overflow: 'hidden', boxShadow: css('--shadow'),
+        }}>
+          <div style={{
+            minWidth: 0,
+            padding: '48px 52px',
+            background: `linear-gradient(135deg, ${css('--surface-2')}, ${css('--surface-3')})`,
+            borderRight: `1px solid ${css('--border')}`,
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 32,
+          }}>{narrative}</div>
+          <div style={{ minWidth: 0, padding: '48px 52px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {form}
+          </div>
         </div>
       </div>
     );
@@ -594,7 +601,7 @@ const Welcome = ({ vw, go, email, setEmail, handleGoogleAuth, handleMagicLink })
   return (
     <SplitLayout vw={vw} narrative={<Narrative vw={vw} />}
       form={
-        <FormCard vw={vw}>
+        <FormCard vw={vw} bare={vw === 'desktop'}>
           <div>
             <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>
               Empieza tu plan
