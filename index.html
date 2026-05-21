@@ -108,9 +108,10 @@ input[type=range]::-moz-range-thumb{
   border:2px solid var(--surface);
 }
 .container{
-  max-width:1240px;
+  width:100%;
+  max-width:1400px;
   margin:0 auto;
-  padding:28px 24px 36px;
+  padding:28px 28px 36px;
   position:relative;
 }
 .topbar{
@@ -573,7 +574,7 @@ th:first-child,td:first-child{text-align:left}
   .onboarding-title{font-size:28px}
 }
 /* ─── Sidebar app shell ──────────────────────────────── */
-#root{display:flex;min-height:100svh}
+#root{min-height:100svh}
 .sidebar{transition:width 0.2s ease}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -2354,31 +2355,35 @@ function PlannerSidebar({ collapsed, onToggleCollapse, theme, onToggleTheme, use
   );
 }
 
+const CONTENT_MAX = 1400;
 function ContextHeader({ title, subtitle, theme, onToggleTheme, collapsed, compact }) {
   return (
-    <header style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-      padding:compact?'12px 18px':'14px 28px', borderBottom:'1px solid var(--border)',
-      background:'var(--bg)', position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)', gap:12 }}>
-      <div style={{ minWidth:0 }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--muted)' }}>{subtitle}</div>
-        <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
-          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
-      </div>
-      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-        {collapsed && (
-          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
-            background:'transparent', border:'1px solid var(--border)',
-            color:'var(--muted-2)', width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0 }}>
-            {theme==='dark'?'☀':'☾'}
-          </button>
-        )}
-        <a href="tracking.html" style={{
-          background:'transparent', border:'1px solid var(--border)', color:'var(--muted-2)',
-          height:34, borderRadius:10, fontSize:13, padding:compact?0:'0 12px', width:compact?34:'auto',
-          display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
-          fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none' }}>
-          <span>⌁</span>{!compact && <span>Seguimiento</span>}
-        </a>
+    <header style={{ borderBottom:'1px solid var(--border)',
+      background:'var(--bg)', position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)' }}>
+      <div style={{ maxWidth:CONTENT_MAX, margin:'0 auto',
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:compact?'12px 18px':'14px 28px', gap:12 }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--muted)' }}>{subtitle}</div>
+          <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          {collapsed && (
+            <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+              background:'transparent', border:'1px solid var(--border)',
+              color:'var(--muted-2)', width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0 }}>
+              {theme==='dark'?'☀':'☾'}
+            </button>
+          )}
+          <a href="tracking.html" style={{
+            background:'transparent', border:'1px solid var(--border)', color:'var(--muted-2)',
+            height:34, borderRadius:10, fontSize:13, padding:compact?0:'0 12px', width:compact?34:'auto',
+            display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+            fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none' }}>
+            <span>⌁</span>{!compact && <span>Seguimiento</span>}
+          </a>
+        </div>
       </div>
     </header>
   );

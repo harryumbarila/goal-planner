@@ -472,37 +472,39 @@ function Sidebar({ active, onNav, collapsed, onToggleCollapse, theme, onToggleTh
 /* ═══════════════════════════════════════════════════
    CONTEXT HEADER (desktop / tablet)
 ═══════════════════════════════════════════════════ */
+const CONTENT_MAX = 1400;
 function ContextHeader({ title, subtitle, theme, onToggleTheme, collapsed, compact }) {
   return (
     <header style={{
-      display:'flex', alignItems:'center', justifyContent:'space-between',
-      padding:compact?'12px 18px':'14px 28px',
       borderBottom:`1px solid ${css('--border')}`,
-      background:css('--bg'), position:'sticky', top:0, zIndex:10,
-      backdropFilter:'blur(6px)', gap:12,
+      background:css('--bg'), position:'sticky', top:0, zIndex:10, backdropFilter:'blur(6px)',
     }}>
-      <div style={{ minWidth:0 }}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted') }}>{subtitle}</div>
-        <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
-          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
-      </div>
-      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-        {collapsed && (
-          <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+      <div style={{ maxWidth:CONTENT_MAX, margin:'0 auto',
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:compact?'12px 18px':'14px 28px', gap:12 }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:css('--muted') }}>{subtitle}</div>
+          <h1 style={{ fontSize:compact?17:20, fontWeight:700, letterSpacing:'-0.03em', margin:'2px 0 0',
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{title}</h1>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          {collapsed && (
+            <button onClick={onToggleTheme} aria-label="Cambiar tema" style={{
+              background:'transparent', border:`1px solid ${css('--border')}`,
+              color:css('--muted-2'), width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0,
+            }}>{theme==='dark'?'☀':'☾'}</button>
+          )}
+          <a href="index.html" style={{
             background:'transparent', border:`1px solid ${css('--border')}`,
-            color:css('--muted-2'), width:34, height:34, borderRadius:10, cursor:'pointer', fontSize:14, padding:0,
-          }}>{theme==='dark'?'☀':'☾'}</button>
-        )}
-        <a href="index.html" style={{
-          background:'transparent', border:`1px solid ${css('--border')}`,
-          color:css('--muted-2'), height:34, borderRadius:10, cursor:'pointer', fontSize:13,
-          padding:compact?0:'0 12px', width:compact?34:'auto',
-          display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
-          fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none',
-        }}>
-          <span>◐</span>
-          {!compact && <span>Planner</span>}
-        </a>
+            color:css('--muted-2'), height:34, borderRadius:10, cursor:'pointer', fontSize:13,
+            padding:compact?0:'0 12px', width:compact?34:'auto',
+            display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+            fontFamily:"'DM Sans',sans-serif", fontWeight:500, textDecoration:'none',
+          }}>
+            <span>◐</span>
+            {!compact && <span>Planner</span>}
+          </a>
+        </div>
       </div>
     </header>
   );
@@ -1103,7 +1105,7 @@ function ArchivedView({ goals, loaded, onUnarchive, isMobile }) {
     </div>
   );
   return (
-    <div style={{ padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:1120, margin:'0 auto' }}>
+    <div style={{ width:'100%', padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:CONTENT_MAX, margin:'0 auto' }}>
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
         {goals.map(g => {
           const archDate = new Date(g.archived_at).toLocaleDateString('es-CO', { day:'numeric', month:'short', year:'numeric' });
@@ -1135,7 +1137,7 @@ function SegView({ goals, activeGoalId, onSelectGoal, contributions, tone, gap, 
     <div style={{ padding:'40px 28px', color:css('--muted'), fontSize:13 }}>Inicializando seguimiento…</div>
   );
   return (
-    <div style={{ padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:1120, margin:'0 auto' }}>
+    <div style={{ width:'100%', padding:isMobile?'14px 14px 90px':'20px 28px 60px', maxWidth:CONTENT_MAX, margin:'0 auto' }}>
       {showReminder && !contributions.some(c=>c.month===currentMonthKey()) && (
         <MonthlyReminder goal={goal}
           onConfirm={()=>onLog({ amount:goal.monthly_add, note:'', existingId:null, replan:false, direct:true })}
