@@ -34,19 +34,20 @@ There is no build step and no `node_modules` directory.
 
 ## Run Locally
 
-Serve the repository root with any static file server. For example:
-
-```bash
-python -m http.server 3000
-```
-
-Then open the local site in a browser.
+Serve the repository root with any static file server, then open the address it provides in a browser.
 
 ## Deployment
 
 The site is ready for Vercel deployment from the repository root.
 
 Import the GitHub repository into Vercel as a static project. The HTML files live at the repository root, so no build command or generated output directory is required.
+
+For sign-in to return to the deployed app, keep Supabase Auth URL Configuration aligned with the public Vercel domain:
+
+- Set the Site URL to the public production domain.
+- Allow the production auth return page, for example `https://goal-planner-01.vercel.app/auth.html`.
+- Add Vercel preview return URLs only when preview deployments need sign-in.
+- Remove redirect URLs for domains that are no longer active.
 
 ## Data and Auth
 

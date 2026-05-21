@@ -41,6 +41,7 @@ shell commands, and other important information, read the current plan
 - **Anon key**: in `supabase-config.js` (safe to commit — RLS enforces row-level security)
 - **Schema**: `profiles`, `goals`, `snapshots`, `events` (append-only)
 - **RLS**: every table restricted to `auth.uid() = user_id`
+- **Auth return URLs**: Supabase URL Configuration must keep the Vercel production domain and `auth.html` return page allow-listed when the deployed domain changes
 - **Google OAuth**: requires setup in Google Cloud Console (see Supabase Dashboard → Auth → Providers)
 
 ### Key components inside `index.html`
